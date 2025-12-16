@@ -72,9 +72,15 @@ importers:
       '@trpc/server':
         specifier: ^10.45.2
         version: 10.45.3
+      '@ttp/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@ttp/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@ttp/trust-engine':
+        specifier: workspace:*
+        version: link:../../packages/trust-engine
       next:
         specifier: ^15.3.3
         version: 15.5.9(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -87,6 +93,9 @@ importers:
       superjson:
         specifier: ^2.2.2
         version: 2.2.6
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
