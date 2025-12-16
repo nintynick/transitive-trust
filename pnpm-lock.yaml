@@ -11,6 +11,9 @@ importers:
       '@types/node':
         specifier: ^20.10.0
         version: 20.19.27
+      next:
+        specifier: ^15.3.3
+        version: 15.5.9(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       prettier:
         specifier: ^3.4.2
         version: 3.7.4
