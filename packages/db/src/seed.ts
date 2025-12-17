@@ -56,10 +56,19 @@ interface TestSubject {
   domains: string[];
 }
 
-async function clearDatabase() {
+async function clearDatabase(preservePrincipalId?: string) {
   console.log('Clearing existing data...');
-  await writeQuery('MATCH (n) DETACH DELETE n', {});
-  console.log('Database cleared.');
+  if (preservePrincipalId) {
+    // Delete everything except the specified principal
+    await writeQuery(
+      `MATCH (n) WHERE NOT (n:Principal AND n.id = $preserveId) DETACH DELETE n`,
+      { preserveId: preservePrincipalId }
+    );
+    console.log(`Database cleared (preserved principal: ${preservePrincipalId})`);
+  } else {
+    await writeQuery('MATCH (n) DETACH DELETE n', {});
+    console.log('Database cleared.');
+  }
 }
 
 async function seed() {
@@ -75,7 +84,18 @@ async function seed() {
   console.log('Connecting to Neo4j at', uri.replace(/\/\/.*@/, '//***@'));
   initDriver({ uri, user, password });
 
-  await clearDatabase();
+  // Main test user (the "viewer") - use existing ID if provided
+  const requestedMainUserId = process.env.MAIN_USER_ID || 'usr_mj9bbh1f_vt2rkcnz';
+
+  // Check if main user exists BEFORE clearing
+  const existingUserCheck = await writeQuery<{ p: { id: string } }>(
+    `MATCH (p:Principal {id: $id}) RETURN p { .id } AS p`,
+    { id: requestedMainUserId }
+  );
+  const mainUserExists = existingUserCheck.length > 0;
+
+  // Clear database but preserve the main user if they exist
+  await clearDatabase(mainUserExists ? requestedMainUserId : undefined);
 
   // ============================================
   // 1. CREATE PRINCIPALS (Users)
@@ -84,18 +104,35 @@ async function seed() {
 
   const principals: TestPrincipal[] = [];
 
-  // Main test user (the "viewer")
-  const mainUser = await createPrincipal({
-    type: 'user',
-    publicKey: 'main-user-public-key',
-    metadata: {
-      displayName: 'You (Test User)',
-      name: 'Test User',
-      bio: 'The main test account - this is you!',
-    },
-  });
-  principals.push({ id: mainUser.id, name: 'You (Test User)', bio: 'Main user' });
-  console.log(`  Created main user: ${mainUser.id}`);
+  let mainUserId: string;
+  if (mainUserExists) {
+    mainUserId = requestedMainUserId;
+    console.log(`  Using existing main user: ${mainUserId}`);
+  } else {
+    // Create a new main user with a specific ID using raw query
+    const now = new Date().toISOString();
+    await writeQuery(
+      `CREATE (p:Principal {
+        id: $id,
+        type: 'user',
+        publicKey: 'main-user-public-key',
+        createdAt: datetime($createdAt),
+        metadata: $metadata
+      })`,
+      {
+        id: requestedMainUserId,
+        createdAt: now,
+        metadata: JSON.stringify({
+          displayName: 'You (Test User)',
+          name: 'Test User',
+          bio: 'The main test account - this is you!',
+        }),
+      }
+    );
+    mainUserId = requestedMainUserId;
+    console.log(`  Created main user: ${mainUserId}`);
+  }
+  principals.push({ id: mainUserId, name: 'You (Test User)', bio: 'Main user' });
 
   // Close friends (high trust, 1 hop)
   const closeFriends = [
