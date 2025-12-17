@@ -186,14 +186,14 @@ export default function SubjectPage() {
                   <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Top contributors to your score:</h4>
                   <ul className="space-y-2">
                     {scoreData.topContributors.map((contributor: any, i: number) => (
-                      <li key={contributor.authorId} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+                      <li key={contributor.principal?.id || i} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
                         <div className="flex items-center gap-2">
                           <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-xs font-medium">{i + 1}</span>
-                          <span className="font-medium">{contributor.authorDisplayName || contributor.authorId.slice(0, 12) + '...'}</span>
+                          <span className="font-medium">{contributor.principal?.displayName || (contributor.principal?.id?.slice(0, 12) + '...') || 'Unknown'}</span>
                         </div>
                         <div className="flex items-center gap-3 text-sm">
-                          <span className="text-gray-500">Trust: {(contributor.trustWeight * 100).toFixed(0)}%</span>
-                          <span>Rated: {(contributor.rating * 5).toFixed(1)} ★</span>
+                          <span className="text-gray-500">Trust: {((contributor.trust ?? 0) * 100).toFixed(0)}%</span>
+                          <span>Rated: {((contributor.rating ?? 0) * 5).toFixed(1)} ★</span>
                         </div>
                       </li>
                     ))}
