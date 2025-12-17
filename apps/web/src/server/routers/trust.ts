@@ -23,11 +23,20 @@ import {
 } from '@ttp/db';
 import { TRPCError } from '@trpc/server';
 import { verifyPrincipalSignature, hasValidSignature } from '../lib/verify';
+import { isAddress } from 'viem';
 
 export const trustRouter = router({
   declareTrust: protectedProcedure
     .input(CreateTrustEdgeInputSchema)
     .mutation(async ({ ctx, input }) => {
+      // Validate Ethereum address format
+      if (!isAddress(input.to)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Invalid Ethereum address format.',
+        });
+      }
+
       // Check if target principal exists
       const targetPrincipal = await getPrincipalById(input.to);
       if (!targetPrincipal) {
@@ -104,6 +113,14 @@ export const trustRouter = router({
   declareDistrust: protectedProcedure
     .input(CreateDistrustEdgeInputSchema)
     .mutation(async ({ ctx, input }) => {
+      // Validate Ethereum address format
+      if (!isAddress(input.to)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Invalid Ethereum address format.',
+        });
+      }
+
       // TODO: Add signature support for distrust edges
       const signature = {
         algorithm: 'secp256k1' as const,

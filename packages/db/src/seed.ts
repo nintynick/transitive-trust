@@ -1,6 +1,8 @@
 /**
  * Seed script to populate the database with meaningful test data
  * Run with: pnpm db:seed (from packages/db)
+ *
+ * All principals use Ethereum addresses as IDs (matching wallet-based auth)
  */
 
 import { config } from 'dotenv';
@@ -32,19 +34,20 @@ import {
   createSubject,
   createTrustEdge,
   createEndorsement,
+  getPrincipalById,
 } from './neo4j/queries/index.js';
 import type { Signature } from '@ttp/shared';
 
-// Placeholder signature for test data
+// Placeholder signature for test data (secp256k1 for Ethereum)
 const testSignature: Signature = {
-  algorithm: 'ed25519',
-  publicKey: 'test-public-key',
-  signature: 'test-signature',
+  algorithm: 'secp256k1',
+  publicKey: '0x0000000000000000000000000000000000000000',
+  signature: '0x0000000000000000000000000000000000000000000000000000000000000000',
   signedAt: new Date().toISOString(),
 };
 
 interface TestPrincipal {
-  id: string;
+  address: string; // Ethereum address is the ID
   name: string;
   bio: string;
 }
@@ -56,15 +59,42 @@ interface TestSubject {
   domains: string[];
 }
 
-async function clearDatabase(preservePrincipalId?: string) {
+// Test Ethereum addresses (valid hex addresses)
+// Format: 0x + 40 hex characters (0-9, a-f only)
+const TEST_ADDRESSES = {
+  // Main user - you can override with MAIN_USER_ADDRESS env var
+  mainUser: '0x1234567890123456789012345678901234567890',
+  // Close friends (a11ce = alice, b0b = bob, ca401 = carol)
+  alice: '0xa11ce00000000000000000000000000000000001',
+  bob: '0xb0b0000000000000000000000000000000000002',
+  carol: '0xca401000000000000000000000000000000000003',
+  // Acquaintances (da71d = david, e7a = eva)
+  david: '0xda71d00000000000000000000000000000000004',
+  eva: '0xe7a0000000000000000000000000000000000005',
+  // Friends of friends
+  frank: '0xf4a4c000000000000000000000000000000000006',
+  grace: '0x64ace00000000000000000000000000000000007',
+  henry: '0x4e44e00000000000000000000000000000000008',
+  iris: '0x1415000000000000000000000000000000000009',
+  jack: '0xdac0000000000000000000000000000000000010',
+  // Distant connections
+  kate: '0xca7e000000000000000000000000000000000011',
+  leo: '0x1e00000000000000000000000000000000000012',
+  maya: '0xaa7a000000000000000000000000000000000013',
+  // Unknown/untrusted
+  random: '0x4a4d0000000000000000000000000000000000014',
+  suspicious: '0x5bad000000000000000000000000000000000015',
+};
+
+async function clearDatabase(preserveAddress?: string) {
   console.log('Clearing existing data...');
-  if (preservePrincipalId) {
+  if (preserveAddress) {
     // Delete everything except the specified principal
     await writeQuery(
       `MATCH (n) WHERE NOT (n:Principal AND n.id = $preserveId) DETACH DELETE n`,
-      { preserveId: preservePrincipalId }
+      { preserveId: preserveAddress }
     );
-    console.log(`Database cleared (preserved principal: ${preservePrincipalId})`);
+    console.log(`Database cleared (preserved principal: ${preserveAddress})`);
   } else {
     await writeQuery('MATCH (n) DETACH DELETE n', {});
     console.log('Database cleared.');
@@ -84,159 +114,144 @@ async function seed() {
   console.log('Connecting to Neo4j at', uri.replace(/\/\/.*@/, '//***@'));
   initDriver({ uri, user, password });
 
-  // Main test user (the "viewer") - use existing ID if provided
-  const requestedMainUserId = process.env.MAIN_USER_ID || 'usr_mj9bbh1f_vt2rkcnz';
+  // Main test user address - use env var if provided (your actual wallet address)
+  const mainUserAddress = process.env.MAIN_USER_ADDRESS || TEST_ADDRESSES.mainUser;
 
   // Check if main user exists BEFORE clearing
-  const existingUserCheck = await writeQuery<{ p: { id: string } }>(
-    `MATCH (p:Principal {id: $id}) RETURN p { .id } AS p`,
-    { id: requestedMainUserId }
-  );
-  const mainUserExists = existingUserCheck.length > 0;
+  const existingUser = await getPrincipalById(mainUserAddress);
+  const mainUserExists = !!existingUser;
 
   // Clear database but preserve the main user if they exist
-  await clearDatabase(mainUserExists ? requestedMainUserId : undefined);
+  await clearDatabase(mainUserExists ? mainUserAddress : undefined);
 
   // ============================================
-  // 1. CREATE PRINCIPALS (Users)
+  // 1. CREATE PRINCIPALS (Users with Ethereum addresses)
   // ============================================
-  console.log('\nCreating principals...');
+  console.log('\nCreating principals (with Ethereum addresses)...');
 
   const principals: TestPrincipal[] = [];
 
-  let mainUserId: string;
+  // Create or preserve main user
   if (mainUserExists) {
-    mainUserId = requestedMainUserId;
-    console.log(`  Using existing main user: ${mainUserId}`);
+    console.log(`  Using existing main user: ${mainUserAddress}`);
+    principals.push({ address: mainUserAddress, name: 'You (Test User)', bio: 'Main user' });
   } else {
-    // Create a new main user with a specific ID using raw query
-    const now = new Date().toISOString();
-    await writeQuery(
-      `CREATE (p:Principal {
-        id: $id,
-        type: 'user',
-        publicKey: 'main-user-public-key',
-        createdAt: datetime($createdAt),
-        metadata: $metadata
-      })`,
-      {
-        id: requestedMainUserId,
-        createdAt: now,
-        metadata: JSON.stringify({
-          displayName: 'You (Test User)',
-          name: 'Test User',
-          bio: 'The main test account - this is you!',
-        }),
-      }
-    );
-    mainUserId = requestedMainUserId;
-    console.log(`  Created main user: ${mainUserId}`);
+    const mainUser = await createPrincipal({
+      type: 'user',
+      publicKey: mainUserAddress,
+      metadata: {
+        displayName: 'You (Test User)',
+        name: 'Test User',
+        bio: 'The main test account - this is you!',
+      },
+    });
+    principals.push({ address: mainUser.id, name: 'You (Test User)', bio: 'Main user' });
+    console.log(`  Created main user: ${mainUserAddress}`);
   }
-  principals.push({ id: mainUserId, name: 'You (Test User)', bio: 'Main user' });
 
   // Close friends (high trust, 1 hop)
   const closeFriends = [
-    { name: 'Alice Chen', bio: 'Food blogger and restaurant critic' },
-    { name: 'Bob Martinez', bio: 'Local business owner, knows everyone' },
-    { name: 'Carol Williams', bio: 'Tech consultant, product reviewer' },
+    { address: TEST_ADDRESSES.alice, name: 'Alice Chen', bio: 'Food blogger and restaurant critic' },
+    { address: TEST_ADDRESSES.bob, name: 'Bob Martinez', bio: 'Local business owner, knows everyone' },
+    { address: TEST_ADDRESSES.carol, name: 'Carol Williams', bio: 'Tech consultant, product reviewer' },
   ];
 
   for (const friend of closeFriends) {
     const p = await createPrincipal({
       type: 'user',
-      publicKey: `pk-${friend.name.toLowerCase().replace(' ', '-')}`,
+      publicKey: friend.address,
       metadata: {
         displayName: friend.name,
         name: friend.name,
         bio: friend.bio,
       },
     });
-    principals.push({ id: p.id, name: friend.name, bio: friend.bio });
-    console.log(`  Created: ${friend.name}`);
+    principals.push({ address: p.id, name: friend.name, bio: friend.bio });
+    console.log(`  Created: ${friend.name} (${friend.address.slice(0, 10)}...)`);
   }
 
   // Acquaintances (medium trust, 1 hop)
   const acquaintances = [
-    { name: 'David Lee', bio: 'Occasional hiking buddy' },
-    { name: 'Eva Johnson', bio: 'Coworker from previous job' },
+    { address: TEST_ADDRESSES.david, name: 'David Lee', bio: 'Occasional hiking buddy' },
+    { address: TEST_ADDRESSES.eva, name: 'Eva Johnson', bio: 'Coworker from previous job' },
   ];
 
   for (const acq of acquaintances) {
     const p = await createPrincipal({
       type: 'user',
-      publicKey: `pk-${acq.name.toLowerCase().replace(' ', '-')}`,
+      publicKey: acq.address,
       metadata: {
         displayName: acq.name,
         name: acq.name,
         bio: acq.bio,
       },
     });
-    principals.push({ id: p.id, name: acq.name, bio: acq.bio });
-    console.log(`  Created: ${acq.name}`);
+    principals.push({ address: p.id, name: acq.name, bio: acq.bio });
+    console.log(`  Created: ${acq.name} (${acq.address.slice(0, 10)}...)`);
   }
 
   // Friends of friends (2 hops away)
   const friendsOfFriends = [
-    { name: 'Frank Garcia', bio: "Alice's foodie friend" },
-    { name: 'Grace Kim', bio: "Bob's business partner" },
-    { name: 'Henry Brown', bio: "Carol's tech colleague" },
-    { name: 'Iris Davis', bio: "Alice's neighbor" },
-    { name: 'Jack Wilson', bio: "Bob's cousin" },
+    { address: TEST_ADDRESSES.frank, name: 'Frank Garcia', bio: "Alice's foodie friend" },
+    { address: TEST_ADDRESSES.grace, name: 'Grace Kim', bio: "Bob's business partner" },
+    { address: TEST_ADDRESSES.henry, name: 'Henry Brown', bio: "Carol's tech colleague" },
+    { address: TEST_ADDRESSES.iris, name: 'Iris Davis', bio: "Alice's neighbor" },
+    { address: TEST_ADDRESSES.jack, name: 'Jack Wilson', bio: "Bob's cousin" },
   ];
 
   for (const fof of friendsOfFriends) {
     const p = await createPrincipal({
       type: 'user',
-      publicKey: `pk-${fof.name.toLowerCase().replace(' ', '-')}`,
+      publicKey: fof.address,
       metadata: {
         displayName: fof.name,
         name: fof.name,
         bio: fof.bio,
       },
     });
-    principals.push({ id: p.id, name: fof.name, bio: fof.bio });
-    console.log(`  Created: ${fof.name}`);
+    principals.push({ address: p.id, name: fof.name, bio: fof.bio });
+    console.log(`  Created: ${fof.name} (${fof.address.slice(0, 10)}...)`);
   }
 
   // Distant connections (3 hops)
   const distantConnections = [
-    { name: 'Kate Thompson', bio: "Frank's wife" },
-    { name: 'Leo Anderson', bio: "Grace's accountant" },
-    { name: 'Maya Patel', bio: "Henry's roommate" },
+    { address: TEST_ADDRESSES.kate, name: 'Kate Thompson', bio: "Frank's wife" },
+    { address: TEST_ADDRESSES.leo, name: 'Leo Anderson', bio: "Grace's accountant" },
+    { address: TEST_ADDRESSES.maya, name: 'Maya Patel', bio: "Henry's roommate" },
   ];
 
   for (const dc of distantConnections) {
     const p = await createPrincipal({
       type: 'user',
-      publicKey: `pk-${dc.name.toLowerCase().replace(' ', '-')}`,
+      publicKey: dc.address,
       metadata: {
         displayName: dc.name,
         name: dc.name,
         bio: dc.bio,
       },
     });
-    principals.push({ id: p.id, name: dc.name, bio: dc.bio });
-    console.log(`  Created: ${dc.name}`);
+    principals.push({ address: p.id, name: dc.name, bio: dc.bio });
+    console.log(`  Created: ${dc.name} (${dc.address.slice(0, 10)}...)`);
   }
 
   // Untrusted/unknown users
   const unknownUsers = [
-    { name: 'Random Reviewer', bio: 'No connections to your network' },
-    { name: 'Suspicious Sam', bio: 'Account created yesterday' },
+    { address: TEST_ADDRESSES.random, name: 'Random Reviewer', bio: 'No connections to your network' },
+    { address: TEST_ADDRESSES.suspicious, name: 'Suspicious Sam', bio: 'Account created yesterday' },
   ];
 
   for (const unk of unknownUsers) {
     const p = await createPrincipal({
       type: 'user',
-      publicKey: `pk-${unk.name.toLowerCase().replace(' ', '-')}`,
+      publicKey: unk.address,
       metadata: {
         displayName: unk.name,
         name: unk.name,
         bio: unk.bio,
       },
     });
-    principals.push({ id: p.id, name: unk.name, bio: unk.bio });
-    console.log(`  Created: ${unk.name}`);
+    principals.push({ address: p.id, name: unk.name, bio: unk.bio });
+    console.log(`  Created: ${unk.name} (${unk.address.slice(0, 10)}...)`);
   }
 
   // Helper to find principal by name
@@ -329,9 +344,9 @@ async function seed() {
 
   for (const edge of mainUserEdges) {
     await createTrustEdge(
-      findPrincipal('You (Test User)').id,
+      findPrincipal('You (Test User)').address,
       {
-        to: findPrincipal(edge.to).id,
+        to: findPrincipal(edge.to).address,
         weight: edge.weight,
         domain: edge.domain,
       },
@@ -349,9 +364,9 @@ async function seed() {
 
   for (const edge of aliceEdges) {
     await createTrustEdge(
-      findPrincipal('Alice Chen').id,
+      findPrincipal('Alice Chen').address,
       {
-        to: findPrincipal(edge.to).id,
+        to: findPrincipal(edge.to).address,
         weight: edge.weight,
         domain: edge.domain,
       },
@@ -369,9 +384,9 @@ async function seed() {
 
   for (const edge of bobEdges) {
     await createTrustEdge(
-      findPrincipal('Bob Martinez').id,
+      findPrincipal('Bob Martinez').address,
       {
-        to: findPrincipal(edge.to).id,
+        to: findPrincipal(edge.to).address,
         weight: edge.weight,
         domain: edge.domain,
       },
@@ -388,9 +403,9 @@ async function seed() {
 
   for (const edge of carolEdges) {
     await createTrustEdge(
-      findPrincipal('Carol Williams').id,
+      findPrincipal('Carol Williams').address,
       {
-        to: findPrincipal(edge.to).id,
+        to: findPrincipal(edge.to).address,
         weight: edge.weight,
         domain: edge.domain,
       },
@@ -408,9 +423,9 @@ async function seed() {
 
   for (const edge of thirdDegreeEdges) {
     await createTrustEdge(
-      findPrincipal(edge.from).id,
+      findPrincipal(edge.from).address,
       {
-        to: findPrincipal(edge.to).id,
+        to: findPrincipal(edge.to).address,
         weight: edge.weight,
         domain: edge.domain,
       },
@@ -434,7 +449,7 @@ async function seed() {
 
   for (const review of joesReviews) {
     await createEndorsement(
-      findPrincipal(review.author).id,
+      findPrincipal(review.author).address,
       {
         subject: findSubject("Joe's Coffee Shop").id,
         domain: 'food',
@@ -456,7 +471,7 @@ async function seed() {
 
   for (const review of sakuraReviews) {
     await createEndorsement(
-      findPrincipal(review.author).id,
+      findPrincipal(review.author).address,
       {
         subject: findSubject('Sakura Sushi').id,
         domain: 'food',
@@ -479,7 +494,7 @@ async function seed() {
 
   for (const review of mikesReviews) {
     await createEndorsement(
-      findPrincipal(review.author).id,
+      findPrincipal(review.author).address,
       {
         subject: findSubject("Mike's Plumbing").id,
         domain: 'home',
@@ -502,7 +517,7 @@ async function seed() {
 
   for (const review of techProReviews) {
     await createEndorsement(
-      findPrincipal(review.author).id,
+      findPrincipal(review.author).address,
       {
         subject: findSubject('TechPro Wireless Earbuds').id,
         domain: 'tech',
@@ -524,7 +539,7 @@ async function seed() {
 
   for (const review of quickfixReviews) {
     await createEndorsement(
-      findPrincipal(review.author).id,
+      findPrincipal(review.author).address,
       {
         subject: findSubject('QuickFix Auto Repair').id,
         domain: 'auto',
@@ -546,7 +561,7 @@ async function seed() {
 
   for (const review of greenForkReviews) {
     await createEndorsement(
-      findPrincipal(review.author).id,
+      findPrincipal(review.author).address,
       {
         subject: findSubject('The Green Fork').id,
         domain: 'food',
@@ -568,7 +583,7 @@ async function seed() {
 
   for (const review of mariasReviews) {
     await createEndorsement(
-      findPrincipal(review.author).id,
+      findPrincipal(review.author).address,
       {
         subject: findSubject("Maria's Taqueria").id,
         domain: 'food',
@@ -587,18 +602,21 @@ async function seed() {
   console.log('\n========================================');
   console.log('Seed completed!');
   console.log('========================================');
-  console.log(`Created ${principals.length} principals`);
+  console.log(`Created ${principals.length} principals (with Ethereum addresses)`);
   console.log(`Created ${subjects.length} subjects`);
   console.log('Created trust network with multiple hop distances');
   console.log('Created endorsements with varying trust levels\n');
 
-  console.log('Main test user ID:', findPrincipal('You (Test User)').id);
-  console.log('\nTo test:');
-  console.log('1. Copy the main user ID above');
-  console.log('2. Go to the app and use this ID as your principal');
-  console.log('3. Navigate to /network to see the trust visualization');
-  console.log('4. Adjust the min trust slider to filter connections');
-  console.log('5. Search for businesses and see personalized scores\n');
+  console.log('Main test user address:', mainUserAddress);
+  console.log('\nTo test with your own wallet:');
+  console.log('1. Connect your MetaMask wallet to the app');
+  console.log('2. Your wallet address becomes your principal ID');
+  console.log('3. The seed data uses test addresses - to see personalized');
+  console.log('   scores, you would need to trust some of these test users');
+  console.log('\nTest addresses you can trust:');
+  console.log(`  Alice Chen: ${TEST_ADDRESSES.alice}`);
+  console.log(`  Bob Martinez: ${TEST_ADDRESSES.bob}`);
+  console.log(`  Carol Williams: ${TEST_ADDRESSES.carol}`);
 
   await closeDriver();
 }

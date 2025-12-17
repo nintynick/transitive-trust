@@ -7,6 +7,7 @@ import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
 import type { Principal } from '@ttp/shared';
 import { initDriver, getOrCreatePrincipal } from '@ttp/db';
 import superjson from 'superjson';
+import { isAddress } from 'viem';
 
 // Initialize Neo4j driver
 const neo4jConfig = {
@@ -37,6 +38,12 @@ export async function createContext(
   const walletAddress = opts.req.headers.get('x-principal-id');
 
   if (!walletAddress) {
+    return { viewer: null };
+  }
+
+  // Validate that it's a proper Ethereum address
+  if (!isAddress(walletAddress)) {
+    console.warn(`Invalid Ethereum address received: ${walletAddress}`);
     return { viewer: null };
   }
 
