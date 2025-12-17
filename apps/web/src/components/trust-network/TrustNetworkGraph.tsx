@@ -30,6 +30,7 @@ interface TrustNetworkGraphProps {
   edges: NetworkEdge[];
   viewerId: string;
   showEndorsements?: boolean;
+  showLegend?: boolean;
 }
 
 interface D3Node extends d3.SimulationNodeDatum {
@@ -53,7 +54,7 @@ interface D3Link extends d3.SimulationLinkDatum<D3Node> {
   summary?: string;
 }
 
-export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = true }: TrustNetworkGraphProps) {
+export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = true, showLegend = true }: TrustNetworkGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -377,48 +378,52 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
       )}
 
       {/* Legend */}
-      <div className="absolute bottom-4 left-4 bg-white dark:bg-gray-800 rounded-lg p-3 shadow-md text-sm">
-        <div className="font-semibold mb-2">People (by hop distance)</div>
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-blue-700" />
-          <span>You</span>
-        </div>
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#10b981' }} />
-          <span>1 hop</span>
-        </div>
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#84cc16' }} />
-          <span>2 hops</span>
-        </div>
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f59e0b' }} />
-          <span>3 hops</span>
-        </div>
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#ef4444' }} />
-          <span>4+ hops</span>
-        </div>
+      {showLegend && (
+        <div className="absolute bottom-4 left-4 bg-white dark:bg-gray-800 rounded-lg p-3 shadow-md text-sm">
+          <div className="font-semibold mb-2">People (by hop distance)</div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-blue-700" />
+            <span>You</span>
+          </div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#10b981' }} />
+            <span>1 hop</span>
+          </div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#84cc16' }} />
+            <span>2 hops</span>
+          </div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f59e0b' }} />
+            <span>3 hops</span>
+          </div>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#ef4444' }} />
+            <span>4+ hops</span>
+          </div>
 
-        {showEndorsements && (
-          <>
-            <div className="font-semibold mb-2 mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">Reviews</div>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-3 h-3 rounded" style={{ backgroundColor: '#8b5cf6' }} />
-              <span>Business/Service</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-6 border-t-2 border-dashed" style={{ borderColor: '#8b5cf6' }} />
-              <span>Review</span>
-            </div>
-          </>
-        )}
-      </div>
+          {showEndorsements && (
+            <>
+              <div className="font-semibold mb-2 mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">Reviews</div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-3 h-3 rounded" style={{ backgroundColor: '#8b5cf6' }} />
+                <span>Business/Service</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 border-t-2 border-dashed" style={{ borderColor: '#8b5cf6' }} />
+                <span>Review</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Controls hint */}
-      <div className="absolute bottom-4 right-4 bg-white dark:bg-gray-800 rounded-lg p-2 shadow-md text-xs text-gray-500">
-        Scroll to zoom • Drag to pan • Drag nodes to rearrange
-      </div>
+      {showLegend && (
+        <div className="absolute bottom-4 right-4 bg-white dark:bg-gray-800 rounded-lg p-2 shadow-md text-xs text-gray-500">
+          Scroll to zoom • Drag to pan • Drag nodes to rearrange
+        </div>
+      )}
     </div>
   );
 }

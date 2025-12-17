@@ -129,7 +129,19 @@ export default function NetworkPage() {
         </div>
       )}
 
-      {network && (
+      {network && (() => {
+        // Create a map for looking up node names by ID
+        const nodeNameMap = new Map<string, string>();
+        nodeNameMap.set(principalId, 'You');
+        for (const node of network.nodes) {
+          const name = node.displayName || node.subjectMetadata?.name;
+          if (name) {
+            nodeNameMap.set(node.id, name);
+          }
+        }
+        const getNodeName = (id: string) => nodeNameMap.get(id) || (id.startsWith('0x') ? `${id.slice(0, 6)}...${id.slice(-4)}` : id.slice(0, 12) + '...');
+
+        return (
         <>
           {/* Network Visualization */}
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-6">
@@ -214,11 +226,11 @@ export default function NetworkPage() {
                 <ul className="space-y-2 max-h-64 overflow-y-auto">
                   {network.edges.map((edge, i) => (
                     <li key={i} className="text-sm">
-                      <span className="font-medium">{edge.from.slice(0, 8)}</span>
+                      <span className="font-medium">{getNodeName(edge.from)}</span>
                       {edge.type === 'endorsement' ? (
                         <>
                           <span className="mx-2 text-purple-500">reviewed</span>
-                          <span className="font-medium">{edge.to.slice(0, 8)}</span>
+                          <span className="font-medium">{getNodeName(edge.to)}</span>
                           <span className="text-gray-500 ml-2">
                             {((edge.rating || edge.weight) * 100).toFixed(0)}%
                           </span>
@@ -226,7 +238,7 @@ export default function NetworkPage() {
                       ) : (
                         <>
                           <span className="mx-2 text-gray-400">trusts</span>
-                          <span className="font-medium">{edge.to.slice(0, 8)}</span>
+                          <span className="font-medium">{getNodeName(edge.to)}</span>
                           <span className="text-gray-500 ml-2">
                             {(edge.weight * 100).toFixed(0)}% for {edge.domain === '*' ? 'everything' : edge.domain}
                           </span>
@@ -239,7 +251,8 @@ export default function NetworkPage() {
             </div>
           </div>
         </>
-      )}
+        );
+      })()}
     </main>
   );
 }

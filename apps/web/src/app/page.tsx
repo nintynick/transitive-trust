@@ -261,6 +261,7 @@ export default function Home() {
                     edges={network.edges}
                     viewerId={address}
                     showEndorsements={true}
+                    showLegend={false}
                   />
                 )}
               </div>
