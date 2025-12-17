@@ -87,21 +87,21 @@ export default function Home() {
           <h2 className="text-2xl font-semibold mb-4">How It Works</h2>
           <div className="grid md:grid-cols-3 gap-6">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
-              <h3 className="font-semibold mb-2">1. Build Trust</h3>
+              <h3 className="font-semibold mb-2">1. Trust People's Judgment</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Declare trust in people you know, scoped to specific domains
+                Identify people whose recommendations you value — friends with great taste, experts in specific areas
               </p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
-              <h3 className="font-semibold mb-2">2. Write Endorsements</h3>
+              <h3 className="font-semibold mb-2">2. Share Endorsements</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Share your experiences with businesses and services
+                Write reviews of businesses and services. Your endorsements help people who trust you.
               </p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
               <h3 className="font-semibold mb-2">3. Get Personalized Scores</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                See ratings weighted by your trust network
+                See ratings based on what people you trust think, not anonymous strangers
               </p>
             </div>
           </div>
@@ -186,25 +186,27 @@ export default function Home() {
           href="/trust"
           className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg hover:shadow-xl transition-shadow"
         >
-          <h2 className="text-xl font-semibold mb-2">Declare Trust</h2>
+          <h2 className="text-xl font-semibold mb-2">Trust Someone</h2>
           <p className="text-gray-600 dark:text-gray-400">
-            Add trust relationships to your network
+            Add people whose recommendations you value
           </p>
         </Link>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
-          <h3 className="font-semibold mb-4">Your Trust Edges</h3>
+          <h3 className="font-semibold mb-4">People You Trust</h3>
           {myTrust?.length === 0 ? (
-            <p className="text-gray-500 text-sm">No trust edges yet</p>
+            <p className="text-gray-500 text-sm">
+              You haven't trusted anyone's recommendations yet
+            </p>
           ) : (
             <ul className="space-y-2">
               {myTrust?.slice(0, 5).map((edge) => (
-                <li key={edge.id} className="text-sm">
+                <li key={edge.id} className="text-sm flex items-center justify-between">
                   <span className="font-medium">{edge.to.slice(0, 12)}...</span>
-                  <span className="text-gray-500 ml-2">
-                    (weight: {edge.weight.toFixed(2)}, domain: {edge.domain})
+                  <span className="text-gray-500">
+                    {Math.round(edge.weight * 100)}% for {edge.domain === '*' ? 'everything' : edge.domain}
                   </span>
                 </li>
               ))}
@@ -213,9 +215,11 @@ export default function Home() {
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
-          <h3 className="font-semibold mb-4">Your Endorsements</h3>
+          <h3 className="font-semibold mb-4">Your Reviews</h3>
           {myEndorsements?.length === 0 ? (
-            <p className="text-gray-500 text-sm">No endorsements yet</p>
+            <p className="text-gray-500 text-sm">
+              You haven't written any reviews yet
+            </p>
           ) : (
             <ul className="space-y-2">
               {myEndorsements?.map((e) => (
