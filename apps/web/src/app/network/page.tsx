@@ -22,6 +22,7 @@ export default function NetworkPage() {
   const [principalId, setPrincipalId] = useState<string | null>(null);
   const [maxHops, setMaxHops] = useState(3);
   const [minTrust, setMinTrust] = useState(0.1);
+  const [showEndorsements, setShowEndorsements] = useState(true);
 
   useEffect(() => {
     const stored = localStorage.getItem('ttp-principal-id');
@@ -30,10 +31,11 @@ export default function NetworkPage() {
     }
   }, []);
 
-  const { data: network, isLoading, error } = trpc.trust.getNetwork.useQuery(
+  const { data: network, isLoading, error } = trpc.trust.getNetworkWithEndorsements.useQuery(
     {
       maxHops,
       minTrust,
+      includeEndorsements: showEndorsements,
     },
     { enabled: !!principalId }
   );
@@ -71,7 +73,7 @@ export default function NetworkPage() {
       </div>
 
       {/* Controls */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-6 flex flex-wrap gap-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-6 flex flex-wrap gap-6 items-start">
         <div>
           <label className="block text-sm font-medium mb-1">Network Depth</label>
           <input
@@ -98,6 +100,24 @@ export default function NetworkPage() {
           />
           <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">{(minTrust * 100).toFixed(0)}%</span>
           <p className="text-xs text-gray-500 mt-1">Hide people with less influence on your scores</p>
+        </div>
+        <div className="border-l border-gray-200 dark:border-gray-700 pl-6">
+          <label className="block text-sm font-medium mb-2">Show Reviews</label>
+          <button
+            onClick={() => setShowEndorsements(!showEndorsements)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              showEndorsements ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                showEndorsements ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+          <p className="text-xs text-gray-500 mt-1">
+            {showEndorsements ? 'Showing businesses and reviews' : 'Showing people only'}
+          </p>
         </div>
       </div>
 
@@ -128,6 +148,7 @@ export default function NetworkPage() {
                 nodes={network.nodes}
                 edges={network.edges}
                 viewerId={principalId}
+                showEndorsements={showEndorsements}
               />
             )}
           </div>
@@ -136,10 +157,10 @@ export default function NetworkPage() {
           <div className="grid md:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
               <h2 className="font-semibold mb-2">
-                People in Your Network ({network.nodes.length})
+                In Your Network ({network.nodes.length})
               </h2>
               <p className="text-xs text-gray-500 mb-4">
-                Their endorsements can influence your personalized scores
+                People and businesses in your network
               </p>
               {network.nodes.length === 0 ? (
                 <p className="text-gray-500 text-sm">
@@ -152,16 +173,25 @@ export default function NetworkPage() {
                       key={node.id}
                       className="flex justify-between items-center"
                     >
-                      <span className="font-medium">
-                        {node.displayName || node.id.slice(0, 12) + '...'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {node.type === 'subject' ? (
+                          <span className="w-3 h-3 rounded bg-purple-500 flex-shrink-0" />
+                        ) : (
+                          <span className="w-3 h-3 rounded-full bg-green-500 flex-shrink-0" />
+                        )}
+                        <span className="font-medium">
+                          {node.displayName || node.subjectMetadata?.name || node.id.slice(0, 12) + '...'}
+                        </span>
+                      </div>
                       <span className="text-sm text-gray-500">
-                        {node.hopDistance === 0 ? (
+                        {node.type === 'subject' ? (
+                          <span className="text-purple-600 dark:text-purple-400">Business</span>
+                        ) : node.hopDistance === 0 ? (
                           <span className="text-blue-600 dark:text-blue-400">You</span>
                         ) : (
                           <>
                             {node.hopDistance} hop{node.hopDistance !== 1 && 's'} away
-                            <span className="ml-1">({(node.effectiveTrust * 100).toFixed(0)}% influence)</span>
+                            <span className="ml-1">({(node.effectiveTrust * 100).toFixed(0)}%)</span>
                           </>
                         )}
                       </span>
@@ -173,23 +203,35 @@ export default function NetworkPage() {
 
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
               <h2 className="font-semibold mb-2">
-                Trust Relationships ({network.edges.length})
+                Relationships ({network.edges.length})
               </h2>
               <p className="text-xs text-gray-500 mb-4">
-                Who trusts whose recommendations
+                Trust relationships and reviews
               </p>
               {network.edges.length === 0 ? (
-                <p className="text-gray-500 text-sm">No trust relationships yet</p>
+                <p className="text-gray-500 text-sm">No relationships yet</p>
               ) : (
                 <ul className="space-y-2 max-h-64 overflow-y-auto">
                   {network.edges.map((edge, i) => (
                     <li key={i} className="text-sm">
                       <span className="font-medium">{edge.from.slice(0, 8)}</span>
-                      <span className="mx-2 text-gray-400">trusts</span>
-                      <span className="font-medium">{edge.to.slice(0, 8)}</span>
-                      <span className="text-gray-500 ml-2">
-                        {(edge.weight * 100).toFixed(0)}% for {edge.domain === '*' ? 'everything' : edge.domain}
-                      </span>
+                      {edge.type === 'endorsement' ? (
+                        <>
+                          <span className="mx-2 text-purple-500">reviewed</span>
+                          <span className="font-medium">{edge.to.slice(0, 8)}</span>
+                          <span className="text-gray-500 ml-2">
+                            {((edge.rating || edge.weight) * 100).toFixed(0)}%
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="mx-2 text-gray-400">trusts</span>
+                          <span className="font-medium">{edge.to.slice(0, 8)}</span>
+                          <span className="text-gray-500 ml-2">
+                            {(edge.weight * 100).toFixed(0)}% for {edge.domain === '*' ? 'everything' : edge.domain}
+                          </span>
+                        </>
+                      )}
                     </li>
                   ))}
                 </ul>

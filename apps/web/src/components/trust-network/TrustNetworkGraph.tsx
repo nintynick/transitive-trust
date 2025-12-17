@@ -5,39 +5,55 @@ import * as d3 from 'd3';
 
 interface NetworkNode {
   id: string;
-  type: string;
+  type: 'principal' | 'subject' | string;
   displayName?: string;
   effectiveTrust: number;
   hopDistance: number;
+  subjectMetadata?: {
+    name?: string;
+    description?: string;
+  };
 }
 
 interface NetworkEdge {
   from: string;
   to: string;
+  type?: 'trust' | 'endorsement';
   weight: number;
   domain: string;
+  rating?: number;
+  summary?: string;
 }
 
 interface TrustNetworkGraphProps {
   nodes: NetworkNode[];
   edges: NetworkEdge[];
   viewerId: string;
+  showEndorsements?: boolean;
 }
 
 interface D3Node extends d3.SimulationNodeDatum {
   id: string;
+  nodeType: 'principal' | 'subject' | 'viewer';
   displayName?: string;
   effectiveTrust: number;
   hopDistance: number;
   isViewer: boolean;
+  subjectMetadata?: {
+    name?: string;
+    description?: string;
+  };
 }
 
 interface D3Link extends d3.SimulationLinkDatum<D3Node> {
+  edgeType: 'trust' | 'endorsement';
   weight: number;
   domain: string;
+  rating?: number;
+  summary?: string;
 }
 
-export function TrustNetworkGraph({ nodes, edges, viewerId }: TrustNetworkGraphProps) {
+export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = true }: TrustNetworkGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -80,21 +96,32 @@ export function TrustNetworkGraph({ nodes, edges, viewerId }: TrustNetworkGraphP
 
     svg.call(zoom);
 
+    // Filter nodes and edges based on showEndorsements
+    const filteredNodes = showEndorsements
+      ? nodes
+      : nodes.filter(n => n.type !== 'subject');
+    const filteredEdges = showEndorsements
+      ? edges
+      : edges.filter(e => e.type !== 'endorsement');
+
     // Prepare node data - add viewer node
     const d3Nodes: D3Node[] = [
       {
         id: viewerId,
+        nodeType: 'viewer',
         displayName: 'You',
         effectiveTrust: 1,
         hopDistance: 0,
         isViewer: true,
       },
-      ...nodes.map((n) => ({
+      ...filteredNodes.map((n) => ({
         id: n.id,
-        displayName: n.displayName,
+        nodeType: (n.type === 'subject' ? 'subject' : 'principal') as 'principal' | 'subject',
+        displayName: n.displayName || n.subjectMetadata?.name,
         effectiveTrust: n.effectiveTrust,
         hopDistance: n.hopDistance,
         isViewer: false,
+        subjectMetadata: n.subjectMetadata,
       })),
     ];
 
@@ -102,13 +129,16 @@ export function TrustNetworkGraph({ nodes, edges, viewerId }: TrustNetworkGraphP
     const nodeMap = new Map(d3Nodes.map((n) => [n.id, n]));
 
     // Prepare link data
-    const d3Links: D3Link[] = edges
+    const d3Links: D3Link[] = filteredEdges
       .filter((e) => nodeMap.has(e.from) && nodeMap.has(e.to))
       .map((e) => ({
         source: e.from,
         target: e.to,
+        edgeType: (e.type || 'trust') as 'trust' | 'endorsement',
         weight: e.weight,
         domain: e.domain,
+        rating: e.rating,
+        summary: e.summary,
       }));
 
     // Color scale for hop distance (0=green, 3+=red)
@@ -123,8 +153,11 @@ export function TrustNetworkGraph({ nodes, edges, viewerId }: TrustNetworkGraphP
       .range([1, 6]);
 
     // Create arrow markers for directed edges
-    svg.append('defs').append('marker')
-      .attr('id', 'arrowhead')
+    const defs = svg.append('defs');
+
+    // Arrow for trust edges
+    defs.append('marker')
+      .attr('id', 'arrowhead-trust')
       .attr('viewBox', '-0 -5 10 10')
       .attr('refX', 20)
       .attr('refY', 0)
@@ -134,6 +167,19 @@ export function TrustNetworkGraph({ nodes, edges, viewerId }: TrustNetworkGraphP
       .append('path')
       .attr('d', 'M 0,-5 L 10,0 L 0,5')
       .attr('fill', '#6b7280');
+
+    // Arrow for endorsement edges (different color)
+    defs.append('marker')
+      .attr('id', 'arrowhead-endorsement')
+      .attr('viewBox', '-0 -5 10 10')
+      .attr('refX', 18)
+      .attr('refY', 0)
+      .attr('orient', 'auto')
+      .attr('markerWidth', 5)
+      .attr('markerHeight', 5)
+      .append('path')
+      .attr('d', 'M 0,-5 L 10,0 L 0,5')
+      .attr('fill', '#8b5cf6');
 
     // Create the simulation
     const simulation = d3.forceSimulation<D3Node>(d3Nodes)
@@ -151,16 +197,23 @@ export function TrustNetworkGraph({ nodes, edges, viewerId }: TrustNetworkGraphP
       .selectAll('line')
       .data(d3Links)
       .join('line')
-      .attr('stroke', '#9ca3af')
-      .attr('stroke-opacity', 0.6)
-      .attr('stroke-width', (d) => edgeWidthScale(d.weight))
-      .attr('marker-end', 'url(#arrowhead)');
+      .attr('stroke', (d) => d.edgeType === 'endorsement' ? '#8b5cf6' : '#9ca3af')
+      .attr('stroke-opacity', (d) => d.edgeType === 'endorsement' ? 0.5 : 0.6)
+      .attr('stroke-width', (d) => d.edgeType === 'endorsement' ? 2 : edgeWidthScale(d.weight))
+      .attr('stroke-dasharray', (d) => d.edgeType === 'endorsement' ? '5,3' : 'none')
+      .attr('marker-end', (d) => d.edgeType === 'endorsement' ? 'url(#arrowhead-endorsement)' : 'url(#arrowhead-trust)');
 
-    // Draw the nodes
-    const node = g.append('g')
-      .attr('class', 'nodes')
+    // Draw the nodes - separate groups for principals (circles) and subjects (squares)
+    const nodesGroup = g.append('g').attr('class', 'nodes');
+
+    // Filter nodes by type
+    const principalNodes = d3Nodes.filter(n => n.nodeType !== 'subject');
+    const subjectNodes = d3Nodes.filter(n => n.nodeType === 'subject');
+
+    // Draw principal nodes (circles)
+    const principalNode = nodesGroup
       .selectAll<SVGCircleElement, D3Node>('circle')
-      .data(d3Nodes)
+      .data(principalNodes)
       .join('circle')
       .attr('r', (d) => d.isViewer ? 16 : 12)
       .attr('fill', (d) => d.isViewer ? '#3b82f6' : colorScale(d.hopDistance))
@@ -168,6 +221,35 @@ export function TrustNetworkGraph({ nodes, edges, viewerId }: TrustNetworkGraphP
       .attr('stroke-width', (d) => d.isViewer ? 3 : 2)
       .style('cursor', 'pointer')
       .call(d3.drag<SVGCircleElement, D3Node>()
+        .on('start', (event, d) => {
+          if (!event.active) simulation.alphaTarget(0.3).restart();
+          d.fx = d.x;
+          d.fy = d.y;
+        })
+        .on('drag', (event, d) => {
+          d.fx = event.x;
+          d.fy = event.y;
+        })
+        .on('end', (event, d) => {
+          if (!event.active) simulation.alphaTarget(0);
+          d.fx = null;
+          d.fy = null;
+        }));
+
+    // Draw subject nodes (rounded squares)
+    const subjectNode = nodesGroup
+      .selectAll<SVGRectElement, D3Node>('rect')
+      .data(subjectNodes)
+      .join('rect')
+      .attr('width', 22)
+      .attr('height', 22)
+      .attr('rx', 4)
+      .attr('ry', 4)
+      .attr('fill', '#8b5cf6')
+      .attr('stroke', '#7c3aed')
+      .attr('stroke-width', 2)
+      .style('cursor', 'pointer')
+      .call(d3.drag<SVGRectElement, D3Node>()
         .on('start', (event, d) => {
           if (!event.active) simulation.alphaTarget(0.3).restart();
           d.fx = d.x;
@@ -197,8 +279,8 @@ export function TrustNetworkGraph({ nodes, edges, viewerId }: TrustNetworkGraphP
       .attr('dy', 30)
       .style('pointer-events', 'none');
 
-    // Node hover events
-    node
+    // Principal node hover events
+    principalNode
       .on('mouseenter', (event, d) => {
         const rect = container.getBoundingClientRect();
         setTooltip({
@@ -214,17 +296,35 @@ export function TrustNetworkGraph({ nodes, edges, viewerId }: TrustNetworkGraphP
         setTooltip((prev) => ({ ...prev, visible: false }));
       });
 
+    // Subject node hover events
+    subjectNode
+      .on('mouseenter', (event, d) => {
+        const rect = container.getBoundingClientRect();
+        setTooltip({
+          visible: true,
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top - 10,
+          content: `${d.displayName || d.id.slice(0, 16)}...\n(Reviewed business/service)`,
+        });
+      })
+      .on('mouseleave', () => {
+        setTooltip((prev) => ({ ...prev, visible: false }));
+      });
+
     // Link hover events
     link
       .on('mouseenter', (event, d) => {
         const rect = container.getBoundingClientRect();
         const sourceNode = typeof d.source === 'object' ? d.source : nodeMap.get(d.source as string);
         const targetNode = typeof d.target === 'object' ? d.target : nodeMap.get(d.target as string);
+        const content = d.edgeType === 'endorsement'
+          ? `${sourceNode?.displayName || (sourceNode?.id.slice(0, 8) + '...')} reviewed ${targetNode?.displayName || (targetNode?.id.slice(0, 8) + '...')}\nRating: ${((d.rating || 0) * 100).toFixed(0)}%${d.summary ? '\n' + d.summary : ''}`
+          : `${sourceNode?.displayName || (sourceNode?.id.slice(0, 8) + '...')} → ${targetNode?.displayName || (targetNode?.id.slice(0, 8) + '...')}\nWeight: ${(d.weight * 100).toFixed(0)}%\nDomain: ${d.domain}`;
         setTooltip({
           visible: true,
           x: event.clientX - rect.left,
           y: event.clientY - rect.top - 10,
-          content: `${sourceNode?.displayName || (sourceNode?.id.slice(0, 8) + '...')} → ${targetNode?.displayName || (targetNode?.id.slice(0, 8) + '...')}\nWeight: ${(d.weight * 100).toFixed(0)}%\nDomain: ${d.domain}`,
+          content,
         });
       })
       .on('mouseleave', () => {
@@ -239,9 +339,13 @@ export function TrustNetworkGraph({ nodes, edges, viewerId }: TrustNetworkGraphP
         .attr('x2', (d) => (d.target as D3Node).x!)
         .attr('y2', (d) => (d.target as D3Node).y!);
 
-      node
+      principalNode
         .attr('cx', (d) => d.x!)
         .attr('cy', (d) => d.y!);
+
+      subjectNode
+        .attr('x', (d) => (d.x || 0) - 11)
+        .attr('y', (d) => (d.y || 0) - 11);
 
       labels
         .attr('x', (d) => d.x!)
@@ -252,7 +356,7 @@ export function TrustNetworkGraph({ nodes, edges, viewerId }: TrustNetworkGraphP
     return () => {
       simulation.stop();
     };
-  }, [mounted, nodes, edges, viewerId]);
+  }, [mounted, nodes, edges, viewerId, showEndorsements]);
 
   return (
     <div ref={containerRef} className="relative w-full" style={{ minHeight: 500 }}>
@@ -274,7 +378,7 @@ export function TrustNetworkGraph({ nodes, edges, viewerId }: TrustNetworkGraphP
 
       {/* Legend */}
       <div className="absolute bottom-4 left-4 bg-white dark:bg-gray-800 rounded-lg p-3 shadow-md text-sm">
-        <div className="font-semibold mb-2">Hop Distance</div>
+        <div className="font-semibold mb-2">People (by hop distance)</div>
         <div className="flex items-center gap-2 mb-1">
           <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-blue-700" />
           <span>You</span>
@@ -291,10 +395,24 @@ export function TrustNetworkGraph({ nodes, edges, viewerId }: TrustNetworkGraphP
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f59e0b' }} />
           <span>3 hops</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mb-2">
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#ef4444' }} />
           <span>4+ hops</span>
         </div>
+
+        {showEndorsements && (
+          <>
+            <div className="font-semibold mb-2 mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">Reviews</div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: '#8b5cf6' }} />
+              <span>Business/Service</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-6 border-t-2 border-dashed" style={{ borderColor: '#8b5cf6' }} />
+              <span>Review</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Controls hint */}

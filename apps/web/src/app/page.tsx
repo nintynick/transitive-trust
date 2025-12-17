@@ -49,9 +49,9 @@ export default function Home() {
     { enabled: isConnected && !!me }
   );
 
-  // Fetch network for the graph preview
-  const { data: network } = trpc.trust.getNetwork.useQuery(
-    { maxHops: 2, minTrust: 0.1, limit: 50 },
+  // Fetch network for the graph preview (with endorsements)
+  const { data: network } = trpc.trust.getNetworkWithEndorsements.useQuery(
+    { maxHops: 2, minTrust: 0.1, limit: 50, includeEndorsements: true },
     { enabled: isConnected && !!me }
   );
 
@@ -260,12 +260,13 @@ export default function Home() {
                     nodes={network.nodes}
                     edges={network.edges}
                     viewerId={address}
+                    showEndorsements={true}
                   />
                 )}
               </div>
               <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {network?.nodes.length || 0} people · {network?.edges.length || 0} trust relationships
+                  {network?.nodes.filter(n => n.type !== 'subject').length || 0} people · {network?.nodes.filter(n => n.type === 'subject').length || 0} reviews
                 </span>
                 <Link
                   href="/trust"
