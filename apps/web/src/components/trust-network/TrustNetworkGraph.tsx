@@ -272,7 +272,7 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
       .selectAll('text')
       .data(d3Nodes)
       .join('text')
-      .text((d) => d.displayName || d.id.slice(0, 8) + '...')
+      .text((d) => d.displayName || (d.nodeType === 'subject' ? 'Unknown' : (d.id.startsWith('0x') ? `${d.id.slice(0, 6)}...${d.id.slice(-4)}` : d.id.slice(0, 8) + '...')))
       .attr('font-size', 11)
       .attr('font-weight', (d) => d.isViewer ? 'bold' : 'normal')
       .attr('fill', '#374151')
@@ -284,13 +284,14 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
     principalNode
       .on('mouseenter', (event, d) => {
         const rect = container.getBoundingClientRect();
+        const name = d.displayName || (d.id.startsWith('0x') ? `${d.id.slice(0, 6)}...${d.id.slice(-4)}` : 'Unknown');
         setTooltip({
           visible: true,
           x: event.clientX - rect.left,
           y: event.clientY - rect.top - 10,
           content: d.isViewer
             ? 'You (viewer)'
-            : `${d.displayName || d.id.slice(0, 16)}...\nTrust: ${(d.effectiveTrust * 100).toFixed(0)}%\nHops: ${d.hopDistance}`,
+            : `${name}\nTrust: ${(d.effectiveTrust * 100).toFixed(0)}%\nHops: ${d.hopDistance}`,
         });
       })
       .on('mouseleave', () => {
@@ -301,11 +302,12 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
     subjectNode
       .on('mouseenter', (event, d) => {
         const rect = container.getBoundingClientRect();
+        const name = d.displayName || 'Unknown business';
         setTooltip({
           visible: true,
           x: event.clientX - rect.left,
           y: event.clientY - rect.top - 10,
-          content: `${d.displayName || d.id.slice(0, 16)}...\n(Reviewed business/service)`,
+          content: `${name}\n(Reviewed business/service)`,
         });
       })
       .on('mouseleave', () => {
@@ -318,9 +320,15 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
         const rect = container.getBoundingClientRect();
         const sourceNode = typeof d.source === 'object' ? d.source : nodeMap.get(d.source as string);
         const targetNode = typeof d.target === 'object' ? d.target : nodeMap.get(d.target as string);
+        const getNodeDisplayName = (node: D3Node | undefined) => {
+          if (!node) return 'Unknown';
+          if (node.displayName) return node.displayName;
+          if (node.nodeType === 'subject') return 'Unknown business';
+          return node.id.startsWith('0x') ? `${node.id.slice(0, 6)}...${node.id.slice(-4)}` : 'Unknown';
+        };
         const content = d.edgeType === 'endorsement'
-          ? `${sourceNode?.displayName || (sourceNode?.id.slice(0, 8) + '...')} reviewed ${targetNode?.displayName || (targetNode?.id.slice(0, 8) + '...')}\nRating: ${((d.rating || 0) * 100).toFixed(0)}%${d.summary ? '\n' + d.summary : ''}`
-          : `${sourceNode?.displayName || (sourceNode?.id.slice(0, 8) + '...')} → ${targetNode?.displayName || (targetNode?.id.slice(0, 8) + '...')}\nWeight: ${(d.weight * 100).toFixed(0)}%\nDomain: ${d.domain}`;
+          ? `${getNodeDisplayName(sourceNode)} reviewed ${getNodeDisplayName(targetNode)}\nRating: ${((d.rating || 0) * 100).toFixed(0)}%${d.summary ? '\n' + d.summary : ''}`
+          : `${getNodeDisplayName(sourceNode)} → ${getNodeDisplayName(targetNode)}\nWeight: ${(d.weight * 100).toFixed(0)}%\nDomain: ${d.domain}`;
         setTooltip({
           visible: true,
           x: event.clientX - rect.left,

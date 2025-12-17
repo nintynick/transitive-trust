@@ -158,12 +158,12 @@ export default function EndorsementsPage() {
               <div className="flex items-start justify-between gap-4 mb-3">
                 <div>
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-                    {endorsement.subjectName || endorsement.subject.slice(0, 16) + '...'}
+                    {endorsement.subjectName || 'Unknown business'}
                   </h3>
                   <p className="text-sm text-gray-500">
                     Reviewed by{' '}
                     <span className="font-medium text-gray-700 dark:text-gray-300">
-                      {authorDisplayName || endorsement.author?.slice(0, 10) + '...'}
+                      {authorDisplayName || 'Unknown author'}
                     </span>
                   </p>
                 </div>

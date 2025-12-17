@@ -310,7 +310,7 @@ export default function Home() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-gray-900 dark:text-gray-100">
-                          {e.subjectName || e.subject.slice(0, 12) + '...'}
+                          {e.subjectName || 'Unknown business'}
                         </span>
                         <span className={`text-xs px-1.5 py-0.5 rounded ${
                           e.rating.score >= 0.8

@@ -139,7 +139,13 @@ export default function NetworkPage() {
             nodeNameMap.set(node.id, name);
           }
         }
-        const getNodeName = (id: string) => nodeNameMap.get(id) || (id.startsWith('0x') ? `${id.slice(0, 6)}...${id.slice(-4)}` : id.slice(0, 12) + '...');
+        const getNodeName = (id: string) => {
+          const name = nodeNameMap.get(id);
+          if (name) return name;
+          if (id.startsWith('0x')) return `${id.slice(0, 6)}...${id.slice(-4)}`;
+          if (id.startsWith('sub_')) return 'Unknown business';
+          return 'Unknown';
+        };
 
         return (
         <>
@@ -192,7 +198,7 @@ export default function NetworkPage() {
                           <span className="w-3 h-3 rounded-full bg-green-500 flex-shrink-0" />
                         )}
                         <span className="font-medium">
-                          {node.displayName || node.subjectMetadata?.name || node.id.slice(0, 12) + '...'}
+                          {node.displayName || node.subjectMetadata?.name || (node.type === 'subject' ? 'Unknown business' : (node.id.startsWith('0x') ? `${node.id.slice(0, 6)}...${node.id.slice(-4)}` : 'Unknown'))}
                         </span>
                       </div>
                       <span className="text-sm text-gray-500">
