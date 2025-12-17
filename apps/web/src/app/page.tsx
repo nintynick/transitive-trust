@@ -1,9 +1,23 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { trpc } from '@/lib/trpc';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+
+// Dynamic import to avoid SSR issues with D3
+const TrustNetworkGraph = dynamic(
+  () => import('@/components/trust-network/TrustNetworkGraph').then((mod) => mod.TrustNetworkGraph),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-[300px] bg-gray-50 dark:bg-gray-900 rounded-lg flex items-center justify-center">
+        <p className="text-gray-500">Loading network...</p>
+      </div>
+    ),
+  }
+);
 
 export default function Home() {
   const { address, isConnected } = useAccount();
@@ -32,6 +46,12 @@ export default function Home() {
 
   const { data: myEndorsements } = trpc.endorsements.getMine.useQuery(
     { limit: 5 },
+    { enabled: isConnected && !!me }
+  );
+
+  // Fetch network for the graph preview
+  const { data: network } = trpc.trust.getNetwork.useQuery(
+    { maxHops: 2, minTrust: 0.1, limit: 50 },
     { enabled: isConnected && !!me }
   );
 
@@ -184,114 +204,124 @@ export default function Home() {
 
           <Link
             href="/subject/new"
-            className="bg-green-600 hover:bg-green-700 text-white rounded-lg p-5 transition-colors"
+            className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg p-5 transition-colors"
           >
             <h3 className="text-lg font-semibold mb-1">Write a Review</h3>
-            <p className="text-green-100 text-sm">
+            <p className="text-blue-100 text-sm">
               Share your experience with a business
             </p>
           </Link>
 
           <Link
             href="/search"
-            className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg p-5 transition-colors"
+            className="bg-blue-400 hover:bg-blue-500 text-white rounded-lg p-5 transition-colors"
           >
             <h3 className="text-lg font-semibold mb-1">Search</h3>
-            <p className="text-purple-100 text-sm">
+            <p className="text-blue-50 text-sm">
               Find businesses with trusted ratings
             </p>
           </Link>
         </div>
       </section>
 
-      {/* Your Activity */}
+      {/* Trust Network Graph */}
       <section className="mb-8">
-        <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">Your Activity</h2>
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Trust Network */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">People You Trust</h3>
-              <Link href="/network" className="text-sm text-blue-600 hover:text-blue-700">
-                View all
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Your Trust Network</h2>
+          <Link href="/network" className="text-sm text-blue-600 hover:text-blue-700">
+            View full network
+          </Link>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+          {!hasTrust ? (
+            <div className="text-center py-12 px-6">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                <svg className="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Build Your Trust Network</h3>
+              <p className="text-gray-500 text-sm mb-4 max-w-md mx-auto">
+                Your trust network determines whose recommendations influence your personalized scores.
+                Start by adding people whose judgment you value.
+              </p>
+              <Link
+                href="/trust"
+                className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              >
+                Add Your First Trusted Person
               </Link>
             </div>
-            {!hasTrust ? (
-              <div className="text-center py-4">
-                <p className="text-gray-500 text-sm mb-3">
-                  Your trust network is empty
-                </p>
+          ) : (
+            <div>
+              <div className="h-[300px]">
+                {network && address && (
+                  <TrustNetworkGraph
+                    nodes={network.nodes}
+                    edges={network.edges}
+                    viewerId={address}
+                  />
+                )}
+              </div>
+              <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-3 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {network?.nodes.length || 0} people · {network?.edges.length || 0} trust relationships
+                </span>
                 <Link
                   href="/trust"
-                  className="inline-block px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                 >
-                  Add your first trusted person
+                  Add more people
                 </Link>
               </div>
-            ) : (
-              <ul className="space-y-2">
-                {myTrust?.slice(0, 4).map((edge) => (
-                  <li key={edge.id} className="text-sm flex items-center justify-between py-1">
-                    <span className="font-mono text-gray-700 dark:text-gray-300">
-                      {edge.to.slice(0, 6)}...{edge.to.slice(-4)}
-                    </span>
-                    <span className="text-gray-500 text-xs">
-                      {Math.round(edge.weight * 100)}% · {edge.domain === '*' ? 'all' : edge.domain}
-                    </span>
-                  </li>
-                ))}
-                {myTrust && myTrust.length > 4 && (
-                  <li className="text-sm text-gray-500 pt-1">
-                    +{myTrust.length - 4} more
-                  </li>
-                )}
-              </ul>
-            )}
-          </div>
+            </div>
+          )}
+        </div>
+      </section>
 
-          {/* Your Reviews */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Your Reviews</h3>
-              <Link href="/endorsements" className="text-sm text-blue-600 hover:text-blue-700">
-                View all
+      {/* Your Reviews */}
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Your Reviews</h2>
+          <Link href="/endorsements" className="text-sm text-blue-600 hover:text-blue-700">
+            View all
+          </Link>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+          {!hasEndorsements ? (
+            <div className="text-center py-6">
+              <p className="text-gray-500 text-sm mb-3">
+                You haven't written any reviews yet
+              </p>
+              <Link
+                href="/search"
+                className="inline-block px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50"
+              >
+                Find something to review
               </Link>
             </div>
-            {!hasEndorsements ? (
-              <div className="text-center py-4">
-                <p className="text-gray-500 text-sm mb-3">
-                  You haven't written any reviews
-                </p>
-                <Link
-                  href="/search"
-                  className="inline-block px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg text-sm font-medium hover:bg-green-200 dark:hover:bg-green-900/50"
-                >
-                  Find something to review
-                </Link>
-              </div>
-            ) : (
-              <ul className="space-y-2">
-                {myEndorsements?.slice(0, 4).map((e) => (
-                  <li key={e.id} className="text-sm py-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">
-                        {e.content?.summary || 'Review'}
-                      </span>
-                      <span className="text-xs text-gray-500 ml-2">
-                        {Math.round(e.rating.score * 100)}%
-                      </span>
-                    </div>
-                    <span className="text-xs text-gray-400">{e.domain}</span>
-                  </li>
-                ))}
-                {myEndorsements && myEndorsements.length > 4 && (
-                  <li className="text-sm text-gray-500 pt-1">
-                    +{myEndorsements.length - 4} more
-                  </li>
-                )}
-              </ul>
-            )}
-          </div>
+          ) : (
+            <ul className="space-y-3">
+              {myEndorsements?.slice(0, 5).map((e) => (
+                <li key={e.id} className="text-sm py-1 border-b border-gray-100 dark:border-gray-700 last:border-0 pb-2 last:pb-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[300px]">
+                      {e.content?.summary || 'Review'}
+                    </span>
+                    <span className="text-xs text-gray-500 ml-2">
+                      {Math.round(e.rating.score * 100)}%
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-400">{e.domain}</span>
+                </li>
+              ))}
+              {myEndorsements && myEndorsements.length > 5 && (
+                <li className="text-sm text-gray-500 pt-1">
+                  +{myEndorsements.length - 5} more reviews
+                </li>
+              )}
+            </ul>
+          )}
         </div>
       </section>
 
