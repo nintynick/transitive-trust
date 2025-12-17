@@ -2,7 +2,7 @@
  * Endorsement CRUD operations
  */
 
-import { writeQuery, readQuery, toDate } from '../client.js';
+import { writeQuery, readQuery, toDate, toNumber } from '../client.js';
 import type {
   Endorsement,
   EndorsementId,
@@ -426,7 +426,7 @@ export async function getEndorsementsFromNetwork(
 
   return result.map((r) => ({
     endorsement: recordToEndorsement(r.e),
-    authorTrust: r.authorTrust,
-    hopDistance: r.hopDistance,
+    authorTrust: toNumber(r.authorTrust),
+    hopDistance: toNumber(r.hopDistance),
   }));
 }
