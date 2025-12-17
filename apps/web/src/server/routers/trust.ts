@@ -19,12 +19,31 @@ import {
   createDistrustEdge,
   revokeDistrustEdge,
   getTrustNetwork,
+  getPrincipalById,
 } from '@ttp/db';
+import { TRPCError } from '@trpc/server';
 
 export const trustRouter = router({
   declareTrust: protectedProcedure
     .input(CreateTrustEdgeInputSchema)
     .mutation(async ({ ctx, input }) => {
+      // Check if target principal exists
+      const targetPrincipal = await getPrincipalById(input.to);
+      if (!targetPrincipal) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Principal "${input.to}" not found. Make sure the principal ID is correct.`,
+        });
+      }
+
+      // Can't trust yourself
+      if (input.to === ctx.viewer.id) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'You cannot declare trust in yourself.',
+        });
+      }
+
       const signature = {
         algorithm: 'ed25519' as const,
         publicKey: '',

@@ -127,6 +127,30 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Principal ID display for sharing */}
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Your Principal ID</p>
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Share this with others so they can trust you</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <code className="bg-white dark:bg-gray-800 px-3 py-1 rounded text-sm font-mono">
+              {principalId}
+            </code>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(principalId);
+                alert('Copied to clipboard!');
+              }}
+              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="grid md:grid-cols-2 gap-6 mb-8">
         <Link
           href="/search"

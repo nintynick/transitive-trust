@@ -4,6 +4,7 @@ import { createTRPCReact } from '@trpc/react-query';
 import { httpBatchLink } from '@trpc/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
+import superjson from 'superjson';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const trpc = createTRPCReact<any>();
@@ -42,6 +43,7 @@ export function TRPCProvider({ children }: { children: ReactNode }) {
 
   const [trpcClient] = useState(() =>
     trpc.createClient({
+      transformer: superjson,
       links: [
         httpBatchLink({
           url: `${getBaseUrl()}/api/trpc`,

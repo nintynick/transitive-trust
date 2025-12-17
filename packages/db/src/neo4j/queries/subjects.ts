@@ -272,9 +272,13 @@ export async function searchSubjects(
       metadata: s.metadata
     } AS s
     ${query ? 'ORDER BY score DESC' : 'ORDER BY s.createdAt DESC'}
-    SKIP $offset
-    LIMIT $limit
+    SKIP toInteger($offset)
+    LIMIT toInteger($limit)
   `;
+
+  // Ensure integers for SKIP/LIMIT
+  params.limit = Math.floor(params.limit as number);
+  params.offset = Math.floor(params.offset as number);
 
   const result = await readQuery<{ s: SubjectRecord }>(cypher, params);
   return result.map((r) => recordToSubject(r.s));
@@ -296,10 +300,10 @@ export async function listSubjects(
       metadata: s.metadata
     } AS s
     ORDER BY s.createdAt DESC
-    SKIP $offset
-    LIMIT $limit
+    SKIP toInteger($offset)
+    LIMIT toInteger($limit)
     `,
-    { limit, offset }
+    { limit: Math.floor(limit), offset: Math.floor(offset) }
   );
 
   return result.map((r) => recordToSubject(r.s));

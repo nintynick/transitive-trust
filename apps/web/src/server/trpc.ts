@@ -6,6 +6,7 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
 import type { Principal } from '@ttp/shared';
 import { initDriver, getPrincipalById } from '@ttp/db';
+import superjson from 'superjson';
 
 // Initialize Neo4j driver
 const neo4jConfig = {
@@ -44,7 +45,9 @@ export async function createContext(
   return { viewer: principal };
 }
 
-const t = initTRPC.context<Context>().create();
+const t = initTRPC.context<Context>().create({
+  transformer: superjson,
+});
 
 export const router = t.router;
 export const publicProcedure = t.procedure;

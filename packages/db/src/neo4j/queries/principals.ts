@@ -150,6 +150,7 @@ export async function listPrincipals(
   limit: number = 20,
   offset: number = 0
 ): Promise<Principal[]> {
+  // Neo4j requires integers for SKIP/LIMIT
   const result = await readQuery<{ p: PrincipalRecord }>(
     `
     MATCH (p:Principal)
@@ -159,10 +160,10 @@ export async function listPrincipals(
       metadata: p.metadata
     } AS p
     ORDER BY p.createdAt DESC
-    SKIP $offset
-    LIMIT $limit
+    SKIP toInteger($offset)
+    LIMIT toInteger($limit)
     `,
-    { limit, offset }
+    { limit: Math.floor(limit), offset: Math.floor(offset) }
   );
 
   return result.map((r) => recordToPrincipal(r.p));

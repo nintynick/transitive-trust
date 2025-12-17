@@ -217,10 +217,10 @@ export async function getEndorsementsForSubject(
       signature: e.signature
     } AS e
     ORDER BY e.createdAt DESC
-    SKIP $offset
-    LIMIT $limit
+    SKIP toInteger($offset)
+    LIMIT toInteger($limit)
     `,
-    { subjectId, domain, limit, offset }
+    { subjectId, domain, limit: Math.floor(limit), offset: Math.floor(offset) }
   );
 
   return result.map((r) => recordToEndorsement(r.e));
@@ -258,10 +258,10 @@ export async function getEndorsementsByAuthor(
       signature: e.signature
     } AS e
     ORDER BY e.createdAt DESC
-    SKIP $offset
-    LIMIT $limit
+    SKIP toInteger($offset)
+    LIMIT toInteger($limit)
     `,
-    { authorId, domain, limit, offset }
+    { authorId, domain, limit: Math.floor(limit), offset: Math.floor(offset) }
   );
 
   return result.map((r) => recordToEndorsement(r.e));
@@ -418,10 +418,10 @@ export async function getEndorsementsFromNetwork(
     authorTrust,
     hopDistance
     ORDER BY authorTrust DESC, e.createdAt DESC
-    SKIP $offset
-    LIMIT $limit
+    SKIP toInteger($offset)
+    LIMIT toInteger($limit)
     `,
-    { viewerId, domain, subjectId, minTrust, limit, offset }
+    { viewerId, domain, subjectId, minTrust, limit: Math.floor(limit), offset: Math.floor(offset) }
   );
 
   return result.map((r) => ({

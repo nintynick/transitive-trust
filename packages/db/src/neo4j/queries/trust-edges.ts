@@ -2,7 +2,7 @@
  * Trust Edge operations
  */
 
-import { writeQuery, readQuery, toDate } from '../client.js';
+import { writeQuery, readQuery, toDate, toNumber } from '../client.js';
 import type {
   TrustEdge,
   DistrustEdge,
@@ -371,6 +371,10 @@ export async function getTrustNetwork(
 }> {
   const { domain = '*', maxHops = 3, minTrust = 0.1, limit = 100 } = options;
 
+  // Ensure maxHops is an integer for the Cypher query
+  const intMaxHops = Math.floor(maxHops);
+  const intLimit = Math.floor(limit);
+
   // Get nodes
   const nodesResult = await readQuery<{
     id: string;
@@ -380,7 +384,7 @@ export async function getTrustNetwork(
     hopDistance: number;
   }>(
     `
-    MATCH path = (viewer:Principal {id: $viewerId})-[:TRUSTS*1..${maxHops}]->(reached:Principal)
+    MATCH path = (viewer:Principal {id: $viewerId})-[:TRUSTS*1..${intMaxHops}]->(reached:Principal)
     WHERE ALL(r IN relationships(path) WHERE
       (r.domain = $domain OR r.domain = '*') AND
       (r.expiresAt IS NULL OR r.expiresAt > datetime())
@@ -396,9 +400,9 @@ export async function getTrustNetwork(
       max(pathTrust) AS effectiveTrust,
       min(hops) AS hopDistance
     ORDER BY effectiveTrust DESC
-    LIMIT $limit
+    LIMIT toInteger($limit)
     `,
-    { viewerId, domain, minTrust, limit }
+    { viewerId, domain, minTrust, limit: intLimit }
   );
 
   // Get edges
@@ -409,7 +413,7 @@ export async function getTrustNetwork(
     domain: string;
   }>(
     `
-    MATCH (viewer:Principal {id: $viewerId})-[:TRUSTS*0..${maxHops}]->(from:Principal)-[r:TRUSTS]->(to:Principal)
+    MATCH (viewer:Principal {id: $viewerId})-[:TRUSTS*0..${intMaxHops}]->(from:Principal)-[r:TRUSTS]->(to:Principal)
     WHERE (r.domain = $domain OR r.domain = '*')
       AND (r.expiresAt IS NULL OR r.expiresAt > datetime())
     WITH DISTINCT from, to, r
@@ -422,7 +426,7 @@ export async function getTrustNetwork(
     { viewerId, domain }
   );
 
-  // Parse display names from metadata
+  // Parse display names from metadata and convert Neo4j integers
   const nodes = nodesResult.map((n) => {
     let displayName: string | undefined;
     try {
@@ -435,8 +439,8 @@ export async function getTrustNetwork(
       id: n.id,
       type: n.type,
       displayName,
-      effectiveTrust: n.effectiveTrust,
-      hopDistance: n.hopDistance,
+      effectiveTrust: toNumber(n.effectiveTrust),
+      hopDistance: toNumber(n.hopDistance),
     };
   });
 
