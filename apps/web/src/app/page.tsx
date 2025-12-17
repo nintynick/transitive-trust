@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { trpc } from '@/lib/trpc';
 import Link from 'next/link';
@@ -9,10 +9,6 @@ export default function Home() {
   const { address, isConnected } = useAccount();
   const { connect, connectors, isPending: isConnecting } = useConnect();
   const { disconnect } = useDisconnect();
-
-  const [displayName, setDisplayName] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [registrationError, setRegistrationError] = useState<string | null>(null);
 
   // Store address in localStorage for tRPC header
   useEffect(() => {
@@ -23,8 +19,8 @@ export default function Home() {
     }
   }, [address]);
 
-  // Check if this address has a principal in the database
-  const { data: me, isLoading: isLoadingMe, refetch: refetchMe } = trpc.principals.me.useQuery(
+  // Principal is auto-created on first API call, just fetch it
+  const { data: me, isLoading: isLoadingMe } = trpc.principals.me.useQuery(
     undefined,
     { enabled: isConnected && !!address }
   );
@@ -38,31 +34,6 @@ export default function Home() {
     { limit: 5 },
     { enabled: isConnected && !!me }
   );
-
-  const createPrincipal = trpc.principals.create.useMutation({
-    onSuccess: () => {
-      setIsRegistering(false);
-      setRegistrationError(null);
-      refetchMe();
-    },
-    onError: (err) => {
-      setIsRegistering(false);
-      setRegistrationError(err.message);
-    },
-  });
-
-  const handleRegister = () => {
-    if (!address) return;
-    setIsRegistering(true);
-    setRegistrationError(null);
-    createPrincipal.mutate({
-      type: 'user',
-      publicKey: address,
-      metadata: {
-        displayName: displayName || 'Anonymous User',
-      },
-    });
-  };
 
   const handleDisconnect = () => {
     disconnect();
@@ -132,7 +103,7 @@ export default function Home() {
     );
   }
 
-  // Connected but loading principal
+  // Connected but loading
   if (isLoadingMe) {
     return (
       <main className="min-h-screen p-8 max-w-4xl mx-auto">
@@ -142,67 +113,14 @@ export default function Home() {
     );
   }
 
-  // Connected but no principal - show registration
-  if (!me) {
-    return (
-      <main className="min-h-screen p-8 max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8">Transitive Trust Protocol</h1>
-        <p className="text-gray-600 dark:text-gray-400 mb-8">
-          A decentralized system for perspectival trust and reputation
-        </p>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
-          <h2 className="text-xl font-semibold mb-4">Complete Your Profile</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Your wallet is connected. Set a display name to complete registration.
-          </p>
-
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
-            <p className="text-sm text-blue-800 dark:text-blue-200">
-              Connected: <span className="font-mono">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <input
-              type="text"
-              placeholder="Your name (optional)"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-            />
-            {registrationError && (
-              <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-lg text-red-700 dark:text-red-300 text-sm">
-                {registrationError}
-              </div>
-            )}
-            <button
-              onClick={handleRegister}
-              disabled={isRegistering || createPrincipal.isPending}
-              className="w-full px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              {isRegistering || createPrincipal.isPending ? 'Registering...' : 'Complete Registration'}
-            </button>
-            <button
-              onClick={handleDisconnect}
-              className="w-full px-6 py-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              Use a different wallet
-            </button>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  // Fully connected and registered
+  // Connected - show dashboard
   return (
     <main className="min-h-screen p-8 max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Transitive Trust Protocol</h1>
         <div className="flex items-center gap-4">
           <span className="text-gray-600 dark:text-gray-400" title={address}>
-            {me.metadata.displayName || `${address?.slice(0, 6)}...${address?.slice(-4)}`}
+            {address?.slice(0, 6)}...{address?.slice(-4)}
           </span>
           <button
             onClick={handleDisconnect}

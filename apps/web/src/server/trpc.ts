@@ -5,7 +5,7 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
 import type { Principal } from '@ttp/shared';
-import { initDriver, getPrincipalByPublicKey } from '@ttp/db';
+import { initDriver, getOrCreatePrincipal } from '@ttp/db';
 import superjson from 'superjson';
 
 // Initialize Neo4j driver
@@ -33,15 +33,15 @@ export async function createContext(
 ): Promise<Context> {
   ensureDriver();
 
-  // The header contains the wallet address (publicKey)
+  // The header contains the wallet address
   const walletAddress = opts.req.headers.get('x-principal-id');
 
   if (!walletAddress) {
     return { viewer: null };
   }
 
-  // Look up the principal by their wallet address (stored as publicKey)
-  const principal = await getPrincipalByPublicKey(walletAddress);
+  // Get or create the principal - no separate registration needed
+  const principal = await getOrCreatePrincipal(walletAddress);
 
   return { viewer: principal };
 }

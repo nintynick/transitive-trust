@@ -31,7 +31,8 @@ function recordToPrincipal(record: PrincipalRecord): Principal {
 export async function createPrincipal(
   input: CreatePrincipalInput
 ): Promise<Principal> {
-  const id = ids.principal();
+  // Use publicKey (wallet address) as the ID for simplicity
+  const id = input.publicKey;
   const now = new Date().toISOString();
 
   const result = await writeQuery<{ p: PrincipalRecord }>(
@@ -63,6 +64,28 @@ export async function createPrincipal(
   }
 
   return recordToPrincipal(result[0].p);
+}
+
+/**
+ * Get or create a principal by wallet address.
+ * If the principal doesn't exist, creates one automatically.
+ */
+export async function getOrCreatePrincipal(
+  walletAddress: string
+): Promise<Principal> {
+  // Try to find existing principal
+  let principal = await getPrincipalById(walletAddress);
+
+  if (!principal) {
+    // Auto-create with default values
+    principal = await createPrincipal({
+      type: 'user',
+      publicKey: walletAddress,
+      metadata: {},
+    });
+  }
+
+  return principal;
 }
 
 export async function getPrincipalById(
