@@ -227,42 +227,39 @@ export async function searchSubjects(
 ): Promise<Subject[]> {
   const { domain, location, limit = 20, offset = 0 } = options;
 
-  let cypher: string;
-  const params: Record<string, unknown> = { limit, offset };
+  const params: Record<string, unknown> = {
+    limit: Math.floor(limit),
+    offset: Math.floor(offset)
+  };
 
-  if (query) {
-    // Full-text search
-    cypher = `
-      CALL db.index.fulltext.queryNodes('subject_search', $query)
-      YIELD node AS s, score
-    `;
-    params.query = query;
-  } else {
-    cypher = `MATCH (s:Subject)`;
-  }
-
-  // Add filters
+  // Build filters
   const filters: string[] = [];
 
-  if (domain) {
-    filters.push("$domain IN s.domains OR '*' IN s.domains");
+  if (query) {
+    // Use case-insensitive CONTAINS search (more reliable than full-text index)
+    filters.push('toLower(s.canonicalName) CONTAINS toLower($query)');
+    params.query = query;
+  }
+
+  if (domain && domain !== '*') {
+    filters.push("($domain IN s.domains OR '*' IN s.domains)");
     params.domain = domain;
   }
 
   if (location) {
     filters.push(
-      'point.distance(s.location, point({latitude: $lat, longitude: $lon})) <= $radiusMeters'
+      's.location IS NOT NULL AND point.distance(s.location, point({latitude: $lat, longitude: $lon})) <= $radiusMeters'
     );
     params.lat = location.latitude;
     params.lon = location.longitude;
     params.radiusMeters = location.radiusKm * 1000;
   }
 
-  if (filters.length > 0) {
-    cypher += ` WHERE ${filters.join(' AND ')}`;
-  }
+  const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
 
-  cypher += `
+  const cypher = `
+    MATCH (s:Subject)
+    ${whereClause}
     RETURN s {
       .id, .type, .canonicalName, .domains,
       locationLat: CASE WHEN s.location IS NOT NULL THEN s.location.latitude ELSE null END,
@@ -271,14 +268,10 @@ export async function searchSubjects(
       createdAt: toString(s.createdAt),
       metadata: s.metadata
     } AS s
-    ${query ? 'ORDER BY score DESC' : 'ORDER BY s.createdAt DESC'}
+    ORDER BY s.createdAt DESC
     SKIP toInteger($offset)
     LIMIT toInteger($limit)
   `;
-
-  // Ensure integers for SKIP/LIMIT
-  params.limit = Math.floor(params.limit as number);
-  params.offset = Math.floor(params.offset as number);
 
   const result = await readQuery<{ s: SubjectRecord }>(cypher, params);
   return result.map((r) => recordToSubject(r.s));
