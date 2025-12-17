@@ -39,15 +39,6 @@ export const trustRouter = router({
         });
       }
 
-      // Check if target principal exists
-      const targetPrincipal = await getPrincipalById(input.to);
-      if (!targetPrincipal) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: `Principal "${input.to}" not found. Make sure the principal ID is correct.`,
-        });
-      }
-
       // Can't trust yourself
       if (input.to === ctx.viewer.id) {
         throw new TRPCError({
@@ -55,6 +46,10 @@ export const trustRouter = router({
           message: 'You cannot declare trust in yourself.',
         });
       }
+
+      // Check if target principal exists - if not, create as pending
+      const targetPrincipal = await getPrincipalById(input.to);
+      const isPending = !targetPrincipal;
 
       // Verify signature if provided
       if (hasValidSignature(input.signature)) {
@@ -80,7 +75,7 @@ export const trustRouter = router({
         signedAt: new Date().toISOString(),
       };
 
-      return createTrustEdge(ctx.viewer.id, input, signature);
+      return createTrustEdge(ctx.viewer.id, input, signature, { isPending });
     }),
 
   revokeTrust: protectedProcedure

@@ -32,6 +32,7 @@ export interface TrustEdge {
   expiresAt?: Date; // Optional expiration
   evidence?: Evidence; // Optional justification
   signature: Signature; // Signed by `from` principal
+  isPending?: boolean; // True if target hasn't registered yet
 }
 
 export interface CreateTrustEdgeInput {

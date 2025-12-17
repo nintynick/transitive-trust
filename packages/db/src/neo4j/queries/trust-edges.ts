@@ -24,6 +24,7 @@ export interface TrustEdgeRecord {
   expiresAt?: string;
   evidence?: string;
   signature: string;
+  isPending?: boolean;
 }
 
 export interface DistrustEdgeRecord {
@@ -47,6 +48,7 @@ function recordToTrustEdge(record: TrustEdgeRecord): TrustEdge {
     expiresAt: record.expiresAt ? toDate(record.expiresAt) ?? undefined : undefined,
     evidence: record.evidence ? JSON.parse(record.evidence) : undefined,
     signature: JSON.parse(record.signature),
+    isPending: record.isPending ?? false,
   };
 }
 
@@ -65,10 +67,12 @@ function recordToDistrustEdge(record: DistrustEdgeRecord): DistrustEdge {
 export async function createTrustEdge(
   fromId: PrincipalId,
   input: CreateTrustEdgeInput,
-  signature: Signature
+  signature: Signature,
+  options?: { isPending?: boolean }
 ): Promise<TrustEdge> {
   const edgeId = ids.trustEdge();
   const now = new Date().toISOString();
+  const isPending = options?.isPending ?? false;
 
   // Delete any existing trust edge between these principals in this domain
   await writeQuery(
@@ -78,6 +82,26 @@ export async function createTrustEdge(
     `,
     { fromId, toId: input.to, domain: input.domain }
   );
+
+  // If pending, create placeholder principal if it doesn't exist
+  if (isPending) {
+    await writeQuery(
+      `
+      MERGE (p:Principal {id: $toId})
+      ON CREATE SET
+        p.type = 'user',
+        p.publicKey = '',
+        p.createdAt = datetime($createdAt),
+        p.metadata = $metadata,
+        p.isPending = true
+      `,
+      {
+        toId: input.to,
+        createdAt: now,
+        metadata: JSON.stringify({ displayName: null, isPending: true }),
+      }
+    );
+  }
 
   const result = await writeQuery<{ e: TrustEdgeRecord }>(
     `
@@ -90,7 +114,8 @@ export async function createTrustEdge(
       createdAt: datetime($createdAt),
       ${input.expiresAt ? 'expiresAt: datetime($expiresAt),' : ''}
       evidence: $evidence,
-      signature: $signature
+      signature: $signature,
+      isPending: $isPending
     }]->(to)
     RETURN {
       id: r.id,
@@ -101,7 +126,8 @@ export async function createTrustEdge(
       createdAt: toString(r.createdAt),
       expiresAt: CASE WHEN r.expiresAt IS NOT NULL THEN toString(r.expiresAt) ELSE null END,
       evidence: r.evidence,
-      signature: r.signature
+      signature: r.signature,
+      isPending: r.isPending
     } AS e
     `,
     {
@@ -114,6 +140,7 @@ export async function createTrustEdge(
       expiresAt: input.expiresAt?.toISOString(),
       evidence: input.evidence ? JSON.stringify(input.evidence) : null,
       signature: JSON.stringify(signature),
+      isPending,
     }
   );
 
@@ -142,7 +169,8 @@ export async function getTrustEdge(
       createdAt: toString(r.createdAt),
       expiresAt: CASE WHEN r.expiresAt IS NOT NULL THEN toString(r.expiresAt) ELSE null END,
       evidence: r.evidence,
-      signature: r.signature
+      signature: r.signature,
+      isPending: COALESCE(r.isPending, false)
     } AS e
     `,
     { fromId, toId, domain }
@@ -173,7 +201,8 @@ export async function getOutgoingTrustEdges(
       createdAt: toString(r.createdAt),
       expiresAt: CASE WHEN r.expiresAt IS NOT NULL THEN toString(r.expiresAt) ELSE null END,
       evidence: r.evidence,
-      signature: r.signature
+      signature: r.signature,
+      isPending: COALESCE(r.isPending, false)
     } AS e
     `,
     { principalId, domain }
@@ -200,7 +229,8 @@ export async function getIncomingTrustEdges(
       createdAt: toString(r.createdAt),
       expiresAt: CASE WHEN r.expiresAt IS NOT NULL THEN toString(r.expiresAt) ELSE null END,
       evidence: r.evidence,
-      signature: r.signature
+      signature: r.signature,
+      isPending: COALESCE(r.isPending, false)
     } AS e
     `,
     { principalId, domain }
@@ -367,6 +397,7 @@ export async function getTrustNetwork(
     to: string;
     weight: number;
     domain: string;
+    isPending?: boolean;
   }>;
 }> {
   const { domain = '*', maxHops = 3, minTrust = 0.1, limit = 100 } = options;
@@ -411,6 +442,7 @@ export async function getTrustNetwork(
     to: string;
     weight: number;
     domain: string;
+    isPending: boolean;
   }>(
     `
     MATCH (viewer:Principal {id: $viewerId})-[:TRUSTS*0..${intMaxHops}]->(from:Principal)-[r:TRUSTS]->(to:Principal)
@@ -421,7 +453,8 @@ export async function getTrustNetwork(
       from.id AS from,
       to.id AS to,
       r.weight AS weight,
-      r.domain AS domain
+      r.domain AS domain,
+      COALESCE(r.isPending, false) AS isPending
     `,
     { viewerId, domain }
   );
@@ -558,6 +591,8 @@ export async function getTrustNetworkWithEndorsements(
     // For endorsements
     rating?: number;
     summary?: string;
+    // For pending trust
+    isPending?: boolean;
   }>;
 }> {
   const { domain = '*', maxHops = 3, minTrust = 0.1, limit = 100, includeEndorsements = true } = options;
@@ -599,6 +634,7 @@ export async function getTrustNetworkWithEndorsements(
     to: string;
     weight: number;
     domain: string;
+    isPending: boolean;
   }>(
     `
     MATCH (viewer:Principal {id: $viewerId})-[:TRUSTS*0..${intMaxHops}]->(from:Principal)-[r:TRUSTS]->(to:Principal)
@@ -609,7 +645,8 @@ export async function getTrustNetworkWithEndorsements(
       from.id AS from,
       to.id AS to,
       r.weight AS weight,
-      r.domain AS domain
+      r.domain AS domain,
+      COALESCE(r.isPending, false) AS isPending
     `,
     { viewerId, domain }
   );
@@ -648,12 +685,14 @@ export async function getTrustNetworkWithEndorsements(
     domain: string;
     rating?: number;
     summary?: string;
+    isPending?: boolean;
   }> = trustEdges.map((e) => ({
     from: e.from,
     to: e.to,
     type: 'trust' as const,
     weight: e.weight,
     domain: e.domain,
+    isPending: e.isPending,
   }));
 
   // Get endorsements and subjects if requested

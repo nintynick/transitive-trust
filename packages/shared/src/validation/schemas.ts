@@ -112,6 +112,7 @@ export const TrustEdgeSchema = z.object({
   expiresAt: z.coerce.date().optional(),
   evidence: EvidenceSchema.optional(),
   signature: SignatureSchema,
+  isPending: z.boolean().optional().default(false),
 });
 
 export const CreateTrustEdgeInputSchema = z.object({

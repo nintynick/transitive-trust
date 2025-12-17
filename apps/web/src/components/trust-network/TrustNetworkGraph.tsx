@@ -24,6 +24,7 @@ interface NetworkEdge {
   domain: string;
   rating?: number;
   summary?: string;
+  isPending?: boolean;
 }
 
 interface TrustNetworkGraphProps {
@@ -53,6 +54,7 @@ interface D3Link extends d3.SimulationLinkDatum<D3Node> {
   domain: string;
   rating?: number;
   summary?: string;
+  isPending?: boolean;
 }
 
 export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = true, showLegend = true }: TrustNetworkGraphProps) {
@@ -155,6 +157,7 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
         domain: e.domain,
         rating: e.rating,
         summary: e.summary,
+        isPending: e.isPending,
       }));
 
     // Color scale for hop distance (0=green, 3+=red)
@@ -197,6 +200,20 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
       .attr('d', 'M 0,-5 L 10,0 L 0,5')
       .attr('fill', '#8b5cf6');
 
+    // Arrow for pending trust edges (gray, lower opacity)
+    defs.append('marker')
+      .attr('id', 'arrowhead-pending')
+      .attr('viewBox', '-0 -5 10 10')
+      .attr('refX', 20)
+      .attr('refY', 0)
+      .attr('orient', 'auto')
+      .attr('markerWidth', 6)
+      .attr('markerHeight', 6)
+      .append('path')
+      .attr('d', 'M 0,-5 L 10,0 L 0,5')
+      .attr('fill', '#9ca3af')
+      .attr('opacity', 0.5);
+
     // Create the simulation
     const simulation = d3.forceSimulation<D3Node>(d3Nodes)
       .force('link', d3.forceLink<D3Node, D3Link>(d3Links)
@@ -213,11 +230,31 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
       .selectAll('line')
       .data(d3Links)
       .join('line')
-      .attr('stroke', (d) => d.edgeType === 'endorsement' ? '#8b5cf6' : '#9ca3af')
-      .attr('stroke-opacity', (d) => d.edgeType === 'endorsement' ? 0.5 : 0.6)
-      .attr('stroke-width', (d) => d.edgeType === 'endorsement' ? 2 : edgeWidthScale(d.weight))
-      .attr('stroke-dasharray', (d) => d.edgeType === 'endorsement' ? '5,3' : 'none')
-      .attr('marker-end', (d) => d.edgeType === 'endorsement' ? 'url(#arrowhead-endorsement)' : 'url(#arrowhead-trust)');
+      .attr('stroke', (d) => {
+        if (d.edgeType === 'endorsement') return '#8b5cf6';
+        if (d.isPending) return '#9ca3af';
+        return '#9ca3af';
+      })
+      .attr('stroke-opacity', (d) => {
+        if (d.edgeType === 'endorsement') return 0.5;
+        if (d.isPending) return 0.35;
+        return 0.6;
+      })
+      .attr('stroke-width', (d) => {
+        if (d.edgeType === 'endorsement') return 2;
+        if (d.isPending) return Math.max(1, edgeWidthScale(d.weight) - 1);
+        return edgeWidthScale(d.weight);
+      })
+      .attr('stroke-dasharray', (d) => {
+        if (d.edgeType === 'endorsement') return '5,3';
+        if (d.isPending) return '4,4';
+        return 'none';
+      })
+      .attr('marker-end', (d) => {
+        if (d.edgeType === 'endorsement') return 'url(#arrowhead-endorsement)';
+        if (d.isPending) return 'url(#arrowhead-pending)';
+        return 'url(#arrowhead-trust)';
+      });
 
     // Draw the nodes - separate groups for principals (circles) and subjects (squares)
     const nodesGroup = g.append('g').attr('class', 'nodes');
@@ -369,9 +406,10 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
           if (node.nodeType === 'subject') return 'Unknown business';
           return node.id.startsWith('0x') ? `${node.id.slice(0, 6)}...${node.id.slice(-4)}` : 'Unknown';
         };
+        const pendingLabel = d.isPending ? '\n(Pending - not yet registered)' : '';
         const content = d.edgeType === 'endorsement'
           ? `${getNodeDisplayName(sourceNode)} reviewed ${getNodeDisplayName(targetNode)}\nRating: ${((d.rating || 0) * 100).toFixed(0)}%${d.summary ? '\n' + d.summary : ''}`
-          : `${getNodeDisplayName(sourceNode)} → ${getNodeDisplayName(targetNode)}\nWeight: ${(d.weight * 100).toFixed(0)}%\nDomain: ${d.domain}`;
+          : `${getNodeDisplayName(sourceNode)} → ${getNodeDisplayName(targetNode)}\nWeight: ${(d.weight * 100).toFixed(0)}%\nDomain: ${d.domain}${pendingLabel}`;
         setTooltip({
           visible: true,
           x: event.clientX - rect.left,
@@ -448,9 +486,13 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f59e0b' }} />
             <span>3 hops</span>
           </div>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-1">
             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#ef4444' }} />
             <span>4+ hops</span>
+          </div>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-6 border-t-2 border-dashed" style={{ borderColor: '#9ca3af', opacity: 0.5 }} />
+            <span className="text-gray-500">Pending</span>
           </div>
 
           {showEndorsements && (

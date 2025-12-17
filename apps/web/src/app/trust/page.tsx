@@ -361,17 +361,23 @@ export default function TrustPage() {
               const displayName = ensName || person?.metadata.displayName || shortAddress;
               const edgeDomain = edge.domain === '*' ? 'everything' : COMMON_DOMAINS[edge.domain as keyof typeof COMMON_DOMAINS]?.name?.toLowerCase() || edge.domain;
               const trustLevel = getTrustDescription(edge.weight);
+              const isPending = edge.isPending;
 
               return (
                 <li
                   key={edge.id}
-                  className="flex justify-between items-start py-3 border-b dark:border-gray-700"
+                  className={`flex justify-between items-start py-3 border-b dark:border-gray-700 ${isPending ? 'opacity-70' : ''}`}
                 >
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium">{displayName}</span>
                       {ensName && (
                         <span className="text-xs text-gray-500 font-mono">{shortAddress}</span>
+                      )}
+                      {isPending && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-600">
+                          Pending
+                        </span>
                       )}
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
                         edge.weight >= 0.7 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
@@ -383,6 +389,7 @@ export default function TrustPage() {
                     </div>
                     <p className="text-sm text-gray-500 mt-1">
                       You trust their <strong>{edgeDomain}</strong> recommendations
+                      {isPending && <span className="text-gray-400"> (waiting for them to sign up)</span>}
                     </p>
                   </div>
                   <button
