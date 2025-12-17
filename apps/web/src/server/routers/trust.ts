@@ -22,6 +22,7 @@ import {
   getPrincipalById,
 } from '@ttp/db';
 import { TRPCError } from '@trpc/server';
+import { verifyPrincipalSignature, hasValidSignature } from '../lib/verify';
 
 export const trustRouter = router({
   declareTrust: protectedProcedure
@@ -44,8 +45,25 @@ export const trustRouter = router({
         });
       }
 
-      const signature = {
-        algorithm: 'ed25519' as const,
+      // Verify signature if provided
+      if (hasValidSignature(input.signature)) {
+        const trustData = { to: input.to, weight: input.weight, domain: input.domain };
+        const verification = await verifyPrincipalSignature(
+          ctx.viewer.id,
+          trustData,
+          input.signature!
+        );
+        if (!verification.valid) {
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: verification.error || 'Invalid signature',
+          });
+        }
+      }
+
+      // Use provided signature or create placeholder for legacy support
+      const signature = input.signature || {
+        algorithm: 'secp256k1' as const,
         publicKey: '',
         signature: '',
         signedAt: new Date().toISOString(),
@@ -86,8 +104,9 @@ export const trustRouter = router({
   declareDistrust: protectedProcedure
     .input(CreateDistrustEdgeInputSchema)
     .mutation(async ({ ctx, input }) => {
+      // TODO: Add signature support for distrust edges
       const signature = {
-        algorithm: 'ed25519' as const,
+        algorithm: 'secp256k1' as const,
         publicKey: '',
         signature: '',
         signedAt: new Date().toISOString(),

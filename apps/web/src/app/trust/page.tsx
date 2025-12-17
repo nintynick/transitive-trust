@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAccount, useSignMessage } from 'wagmi';
 import { trpc } from '@/lib/trpc';
 import Link from 'next/link';
-import { COMMON_DOMAINS, RESERVED_DOMAINS } from '@ttp/shared';
+import { COMMON_DOMAINS, RESERVED_DOMAINS, canonicalize } from '@ttp/shared';
+import { createSignature } from '@/lib/signing';
 
 // Trust level descriptions that explain what each level means
 function getTrustDescription(weight: number): { label: string; description: string; color: string } {
@@ -47,13 +49,10 @@ export default function TrustPage() {
   const [weight, setWeight] = useState(0.8);
   const [domain, setDomain] = useState('*');
   const [useManualEntry, setUseManualEntry] = useState(false);
-  const [currentPrincipalId, setCurrentPrincipalId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setCurrentPrincipalId(localStorage.getItem('ttp-principal-id'));
-    }
-  }, []);
+  const { address, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
 
   const utils = trpc.useUtils();
 
@@ -66,9 +65,11 @@ export default function TrustPage() {
       utils.trust.getOutgoing.invalidate();
       setTargetId('');
       setError(null);
+      setIsSubmitting(false);
     },
     onError: (err) => {
       setError(err.message);
+      setIsSubmitting(false);
     },
   });
 
@@ -78,10 +79,44 @@ export default function TrustPage() {
     },
   });
 
+  const handleSubmit = async () => {
+    if (!address || !isConnected) {
+      setError('Please connect your wallet first');
+      return;
+    }
+
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      // Create the trust data to sign
+      const trustData = { to: targetId, weight, domain };
+      const message = canonicalize(trustData);
+
+      // Request signature from wallet (MetaMask popup)
+      const walletSignature = await signMessageAsync({ message });
+
+      // Create the signature object
+      const signature = createSignature(walletSignature, address);
+
+      // Submit to server
+      declareTrust.mutate({
+        to: targetId,
+        weight,
+        domain,
+        signature,
+      });
+    } catch (err) {
+      // User likely rejected the signature request
+      setError(err instanceof Error ? err.message : 'Failed to sign');
+      setIsSubmitting(false);
+    }
+  };
+
   const { data: principals } = trpc.principals.list.useQuery({ limit: 50 });
 
   // Filter out the current user from the list
-  const otherPrincipals = principals?.filter(p => p.id !== currentPrincipalId) || [];
+  const otherPrincipals = principals?.filter(p => p.id !== address) || [];
 
   const selectedPrincipal = otherPrincipals.find(p => p.id === targetId);
   const trustInfo = getTrustDescription(weight);
@@ -219,7 +254,7 @@ export default function TrustPage() {
             <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 border-l-4 border-blue-500">
               <p className="text-sm">
                 <span className="font-medium">You're declaring:</span>{' '}
-                "I trust <strong>{selectedPrincipal?.metadata.displayName || targetId.slice(0, 12) + '...'}</strong>'s
+                "I trust <strong>{selectedPrincipal?.metadata.displayName || (targetId.startsWith('0x') ? `${targetId.slice(0, 6)}...${targetId.slice(-4)}` : `${targetId.slice(0, 12)}...`)}</strong>'s
                 judgment for <strong>{domainLabel}</strong> recommendations
                 at <strong>{Math.round(weight * 100)}%</strong> confidence."
               </p>
@@ -233,14 +268,11 @@ export default function TrustPage() {
           )}
 
           <button
-            onClick={() => {
-              setError(null);
-              declareTrust.mutate({ to: targetId, weight, domain });
-            }}
-            disabled={!targetId || declareTrust.isPending}
+            onClick={handleSubmit}
+            disabled={!targetId || isSubmitting || declareTrust.isPending || !isConnected}
             className="w-full px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {declareTrust.isPending ? 'Saving...' : 'Trust Their Recommendations'}
+            {isSubmitting || declareTrust.isPending ? 'Signing & Saving...' : 'Trust Their Recommendations'}
           </button>
         </div>
       </div>
@@ -256,7 +288,7 @@ export default function TrustPage() {
           <ul className="space-y-3">
             {outgoing?.map((edge) => {
               const person = otherPrincipals.find(p => p.id === edge.to);
-              const displayName = person?.metadata.displayName || edge.to.slice(0, 12) + '...';
+              const displayName = person?.metadata.displayName || (edge.to.startsWith('0x') ? `${edge.to.slice(0, 6)}...${edge.to.slice(-4)}` : `${edge.to.slice(0, 12)}...`);
               const edgeDomain = edge.domain === '*' ? 'everything' : COMMON_DOMAINS[edge.domain as keyof typeof COMMON_DOMAINS]?.name?.toLowerCase() || edge.domain;
               const trustLevel = getTrustDescription(edge.weight);
 

@@ -21,13 +21,38 @@ import {
   deleteEndorsement,
   getEndorsementsFromNetwork,
 } from '@ttp/db';
+import { TRPCError } from '@trpc/server';
+import { verifyPrincipalSignature, hasValidSignature } from '../lib/verify';
 
 export const endorsementsRouter = router({
   create: protectedProcedure
     .input(CreateEndorsementInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const signature = {
-        algorithm: 'ed25519' as const,
+      // Verify signature if provided
+      if (hasValidSignature(input.signature)) {
+        const endorsementData = {
+          subject: input.subject,
+          domain: input.domain,
+          rating: input.rating,
+          content: input.content,
+          context: input.context,
+        };
+        const verification = await verifyPrincipalSignature(
+          ctx.viewer.id,
+          endorsementData,
+          input.signature!
+        );
+        if (!verification.valid) {
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: verification.error || 'Invalid signature',
+          });
+        }
+      }
+
+      // Use provided signature or create placeholder for legacy support
+      const signature = input.signature || {
+        algorithm: 'secp256k1' as const,
         publicKey: '',
         signature: '',
         signedAt: new Date().toISOString(),
@@ -100,8 +125,9 @@ export const endorsementsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const { id, ...updates } = input;
+      // TODO: Add signature verification for endorsement updates
       const signature = {
-        algorithm: 'ed25519' as const,
+        algorithm: 'secp256k1' as const,
         publicKey: '',
         signature: '',
         signedAt: new Date().toISOString(),

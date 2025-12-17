@@ -120,6 +120,7 @@ export const CreateTrustEdgeInputSchema = z.object({
   domain: DomainIdSchema,
   expiresAt: z.coerce.date().optional(),
   evidence: EvidenceSchema.optional(),
+  signature: SignatureSchema.optional(),
 });
 
 // ============ Distrust Edge ============
@@ -208,6 +209,7 @@ export const CreateEndorsementInputSchema = z.object({
       verified: z.boolean().optional().default(false),
     })
     .optional(),
+  signature: SignatureSchema.optional(),
 });
 
 export const UpdateEndorsementInputSchema = z.object({

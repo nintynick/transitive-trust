@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useAccount, useSignMessage } from 'wagmi';
 import { trpc } from '@/lib/trpc';
 import Link from 'next/link';
-import { COMMON_DOMAINS, RESERVED_DOMAINS } from '@ttp/shared';
+import { COMMON_DOMAINS, RESERVED_DOMAINS, canonicalize } from '@ttp/shared';
+import { createSignature } from '@/lib/signing';
 
 function StarRating({ score }: { score: number }) {
   const stars = Math.round(score * 5);
@@ -44,16 +46,10 @@ function ConfidenceBadge({ confidence }: { confidence: number }) {
 export default function SubjectPage() {
   const params = useParams();
   const subjectId = params.id as string;
-  const [principalId, setPrincipalId] = useState<string | null>(null);
   const [selectedDomain, setSelectedDomain] = useState('*');
   const [showEndorsementForm, setShowEndorsementForm] = useState(false);
 
-  useEffect(() => {
-    const stored = localStorage.getItem('ttp-principal-id');
-    if (stored) {
-      setPrincipalId(stored);
-    }
-  }, []);
+  const { address, isConnected } = useAccount();
 
   const { data: subject, isLoading: subjectLoading } = trpc.subjects.getById.useQuery(
     { id: subjectId },
@@ -62,7 +58,7 @@ export default function SubjectPage() {
 
   const { data: scoreData, isLoading: scoreLoading } = trpc.queries.getPersonalizedScore.useQuery(
     { subjectId, domain: selectedDomain },
-    { enabled: !!subjectId && !!principalId }
+    { enabled: !!subjectId && isConnected }
   );
 
   const { data: endorsements, isLoading: endorsementsLoading } = trpc.endorsements.getForSubject.useQuery(
@@ -70,11 +66,11 @@ export default function SubjectPage() {
     { enabled: !!subjectId }
   );
 
-  if (!principalId) {
+  if (!isConnected) {
     return (
       <main className="min-h-screen p-8 max-w-4xl mx-auto">
         <Link href="/" className="text-blue-600 hover:underline">&larr; Back to Home</Link>
-        <p className="mt-8 text-gray-500">Please create a principal to view personalized scores.</p>
+        <p className="mt-8 text-gray-500">Please connect your wallet to view personalized scores.</p>
       </main>
     );
   }
@@ -266,26 +262,61 @@ function EndorsementForm({ subjectId, subjectName, onSuccess }: { subjectId: str
   const [domain, setDomain] = useState('*');
   const [relationship, setRelationship] = useState<'one-time' | 'recurring' | 'long-term'>('one-time');
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { address, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
 
   const utils = trpc.useUtils();
   const createEndorsement = trpc.endorsements.create.useMutation({
     onSuccess: () => {
       utils.endorsements.getForSubject.invalidate({ subjectId });
       utils.queries.getPersonalizedScore.invalidate({ subjectId });
+      setIsSubmitting(false);
       onSuccess();
     },
-    onError: (err) => setError(err.message),
+    onError: (err) => {
+      setError(err.message);
+      setIsSubmitting(false);
+    },
   });
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!address || !isConnected) {
+      setError('Please connect your wallet first');
+      return;
+    }
+
     setError(null);
-    createEndorsement.mutate({
-      subject: subjectId,
-      domain,
-      rating: { score: rating / 5, originalScore: `${rating} out of 5`, originalScale: '1-5 stars' },
-      content: summary ? { summary, body: body || undefined } : undefined,
-      context: { relationship, verified: false },
-    });
+    setIsSubmitting(true);
+
+    try {
+      // Create the endorsement data to sign
+      const endorsementData = {
+        subject: subjectId,
+        domain,
+        rating: { score: rating / 5, originalScore: `${rating} out of 5`, originalScale: '1-5 stars' },
+        content: summary ? { summary, body: body || undefined } : undefined,
+        context: { relationship, verified: false },
+      };
+      const message = canonicalize(endorsementData);
+
+      // Request signature from wallet (MetaMask popup)
+      const walletSignature = await signMessageAsync({ message });
+
+      // Create the signature object
+      const signature = createSignature(walletSignature, address);
+
+      // Submit to server
+      createEndorsement.mutate({
+        ...endorsementData,
+        signature,
+      });
+    } catch (err) {
+      // User likely rejected the signature request
+      setError(err instanceof Error ? err.message : 'Failed to sign');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -326,8 +357,8 @@ function EndorsementForm({ subjectId, subjectName, onSuccess }: { subjectId: str
           </select>
         </div>
         {error && <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-lg text-red-700 dark:text-red-300 text-sm">{error}</div>}
-        <button onClick={handleSubmit} disabled={!summary || createEndorsement.isPending} className="w-full px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-          {createEndorsement.isPending ? 'Submitting...' : 'Submit Review'}
+        <button onClick={handleSubmit} disabled={!summary || isSubmitting || createEndorsement.isPending || !isConnected} className="w-full px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+          {isSubmitting || createEndorsement.isPending ? 'Signing & Submitting...' : 'Submit Review'}
         </button>
       </div>
     </div>

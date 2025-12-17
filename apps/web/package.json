@@ -10,10 +10,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@tanstack/react-query": "^4.36.1",
-    "@trpc/client": "^10.45.2",
-    "@trpc/react-query": "^10.45.2",
-    "@trpc/server": "^10.45.2",
+    "@tanstack/react-query": "^5.90.12",
+    "@trpc/client": "^11.8.0",
+    "@trpc/next": "^11.8.0",
+    "@trpc/react-query": "^11.8.0",
+    "@trpc/server": "^11.8.0",
     "@ttp/db": "workspace:*",
     "@ttp/shared": "workspace:*",
     "@ttp/trust-engine": "workspace:*",
@@ -22,6 +23,8 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "superjson": "^2.2.2",
+    "viem": "^2.43.0",
+    "wagmi": "^3.1.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
