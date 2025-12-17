@@ -3,15 +3,19 @@
  * Provides forward and reverse resolution with caching
  */
 
-import { createPublicClient, http, isAddress } from 'viem';
+import { createPublicClient, http, isAddress, fallback } from 'viem';
 import { mainnet } from 'viem/chains';
 import { normalize } from 'viem/ens';
 
-// Public client for ENS resolution
-// Using Cloudflare's public Ethereum gateway which has good ENS support
+// Public client for ENS resolution with fallback RPCs for reliability
 const publicClient = createPublicClient({
   chain: mainnet,
-  transport: http('https://cloudflare-eth.com'),
+  transport: fallback([
+    http('https://eth.llamarpc.com'),
+    http('https://cloudflare-eth.com'),
+    http('https://rpc.ankr.com/eth'),
+    http('https://ethereum.publicnode.com'),
+  ]),
 });
 
 // In-memory cache for ENS lookups
