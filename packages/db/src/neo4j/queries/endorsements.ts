@@ -492,3 +492,82 @@ export async function getEndorsementsFromNetwork(
     };
   });
 }
+
+export interface SubjectScores {
+  networkScore: number | null;
+  networkReviewCount: number;
+  publicScore: number | null;
+  publicReviewCount: number;
+}
+
+/**
+ * Get aggregated scores for a subject - both trust-weighted network score and public average
+ */
+export async function getSubjectScores(
+  viewerId: PrincipalId,
+  subjectId: SubjectId,
+  options: {
+    domain?: DomainId;
+    maxHops?: number;
+    minTrust?: number;
+  } = {}
+): Promise<SubjectScores> {
+  const { domain, maxHops = 4, minTrust = 0.01 } = options;
+
+  // Get trust-weighted network score
+  const networkResult = await readQuery<{
+    weightedSum: number;
+    trustSum: number;
+    count: number;
+  }>(
+    `
+    MATCH path = (viewer:Principal {id: $viewerId})-[:TRUSTS*1..${maxHops}]->(author:Principal)
+    WHERE ALL(r IN relationships(path) WHERE
+      (r.expiresAt IS NULL OR r.expiresAt > datetime())
+    )
+    WITH author, path,
+         reduce(trust = 1.0, r IN relationships(path) | trust * r.weight) AS pathTrust,
+         length(path) AS hops
+    WHERE pathTrust >= $minTrust
+    WITH author, max(pathTrust) AS authorTrust
+
+    MATCH (author)-[:AUTHORED]->(e:Endorsement)-[:ENDORSES]->(subject:Subject {id: $subjectId})
+    MATCH (e)-[:FOR_DOMAIN]->(d:Domain)
+    ${domain ? "WHERE d.id = $domain OR d.id = '*'" : ''}
+
+    RETURN
+      sum(e.ratingScore * authorTrust) AS weightedSum,
+      sum(authorTrust) AS trustSum,
+      count(e) AS count
+    `,
+    { viewerId, subjectId, domain, minTrust }
+  );
+
+  // Get public (unweighted) score
+  const publicResult = await readQuery<{
+    avgScore: number;
+    count: number;
+  }>(
+    `
+    MATCH (e:Endorsement)-[:ENDORSES]->(subject:Subject {id: $subjectId})
+    MATCH (e)-[:FOR_DOMAIN]->(d:Domain)
+    ${domain ? "WHERE d.id = $domain OR d.id = '*'" : ''}
+    RETURN avg(e.ratingScore) AS avgScore, count(e) AS count
+    `,
+    { subjectId, domain }
+  );
+
+  const networkData = networkResult[0];
+  const publicData = publicResult[0];
+
+  return {
+    networkScore: networkData && networkData.trustSum > 0
+      ? toNumber(networkData.weightedSum) / toNumber(networkData.trustSum)
+      : null,
+    networkReviewCount: networkData ? toNumber(networkData.count) : 0,
+    publicScore: publicData && publicData.count > 0
+      ? toNumber(publicData.avgScore)
+      : null,
+    publicReviewCount: publicData ? toNumber(publicData.count) : 0,
+  };
+}

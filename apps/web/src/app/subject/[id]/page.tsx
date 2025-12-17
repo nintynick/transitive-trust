@@ -61,6 +61,11 @@ export default function SubjectPage() {
     { enabled: !!subjectId && isConnected }
   );
 
+  const { data: aggregatedScores } = trpc.subjects.getScores.useQuery(
+    { subjectId, domain: selectedDomain !== '*' ? selectedDomain : undefined },
+    { enabled: !!subjectId && isConnected }
+  );
+
   const { data: endorsements, isLoading: endorsementsLoading } = trpc.endorsements.getForSubject.useQuery(
     { subjectId, limit: 50 },
     { enabled: !!subjectId }
@@ -126,6 +131,79 @@ export default function SubjectPage() {
 
       {showEndorsementForm && (
         <EndorsementForm subjectId={subjectId} subjectName={subject.canonicalName} onSuccess={() => setShowEndorsementForm(false)} />
+      )}
+
+      {/* Score Comparison - Network vs Public */}
+      {aggregatedScores && (aggregatedScores.networkScore !== null || aggregatedScores.publicScore !== null) && (
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-6 mb-6 border border-blue-200 dark:border-blue-800">
+          <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">Score Comparison</h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Network Score */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-3 h-3 rounded-full bg-blue-500" />
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Your Network</span>
+              </div>
+              {aggregatedScores.networkScore !== null ? (
+                <>
+                  <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                    {(aggregatedScores.networkScore * 100).toFixed(0)}%
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    from {aggregatedScores.networkReviewCount} trusted reviewer{aggregatedScores.networkReviewCount !== 1 && 's'}
+                  </div>
+                </>
+              ) : (
+                <div className="text-gray-400 text-sm">No reviews from your network yet</div>
+              )}
+            </div>
+
+            {/* Public Score */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-3 h-3 rounded-full bg-gray-400" />
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Public Average</span>
+              </div>
+              {aggregatedScores.publicScore !== null ? (
+                <>
+                  <div className="text-3xl font-bold text-gray-600 dark:text-gray-400">
+                    {(aggregatedScores.publicScore * 100).toFixed(0)}%
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    from {aggregatedScores.publicReviewCount} total review{aggregatedScores.publicReviewCount !== 1 && 's'}
+                  </div>
+                </>
+              ) : (
+                <div className="text-gray-400 text-sm">No reviews yet</div>
+              )}
+            </div>
+          </div>
+
+          {/* Score difference insight */}
+          {aggregatedScores.networkScore !== null && aggregatedScores.publicScore !== null && (
+            <div className="mt-4 pt-4 border-t border-blue-200 dark:border-blue-700">
+              {Math.abs(aggregatedScores.networkScore - aggregatedScores.publicScore) > 0.1 ? (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {aggregatedScores.networkScore > aggregatedScores.publicScore ? (
+                    <>
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">Your network rates this higher</span> than the public average.
+                      People you trust have had better experiences here.
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-orange-600 dark:text-orange-400 font-medium">Your network rates this lower</span> than the public average.
+                      People you trust have had mixed experiences here.
+                    </>
+                  )}
+                </p>
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Your network's rating is similar to the public average.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Domain Filter */}

@@ -3,11 +3,12 @@
  */
 
 import { z } from 'zod';
-import { router, publicProcedure } from '../trpc';
+import { router, publicProcedure, protectedProcedure } from '../trpc';
 import {
   CreateSubjectInputSchema,
   SubjectIdSchema,
   GeoLocationSchema,
+  DomainIdSchema,
 } from '@ttp/shared';
 import {
   createSubject,
@@ -15,6 +16,7 @@ import {
   listSubjects,
   searchSubjects,
   updateSubject,
+  getSubjectScores,
 } from '@ttp/db';
 
 export const subjectsRouter = router({
@@ -80,5 +82,22 @@ export const subjectsRouter = router({
     .mutation(async ({ input }) => {
       const { id, ...updates } = input;
       return updateSubject(id, updates);
+    }),
+
+  getScores: protectedProcedure
+    .input(
+      z.object({
+        subjectId: SubjectIdSchema,
+        domain: DomainIdSchema.optional(),
+        maxHops: z.number().int().min(1).max(4).optional().default(4),
+        minTrust: z.number().min(0).max(1).optional().default(0.01),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      return getSubjectScores(ctx.viewer.id, input.subjectId, {
+        domain: input.domain,
+        maxHops: input.maxHops,
+        minTrust: input.minTrust,
+      });
     }),
 });

@@ -128,22 +128,46 @@ export default function EndorsementsPage() {
       {isLoading && <p className="text-gray-500">Loading reviews...</p>}
 
       {feed && feed.length === 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-          <p className="text-gray-500">
-            No reviews found{domain ? ` in the "${domain}" domain` : ''} from your network.
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-8 border border-gray-200 dark:border-gray-700 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+            <svg className="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold mb-2">No reviews from your network yet</h3>
+          <p className="text-gray-500 text-sm mb-6 max-w-md mx-auto">
+            {domain
+              ? `No one in your trust network has reviewed anything in the "${domain}" domain yet.`
+              : "Once you trust people and they write reviews, you'll see their recommendations here."}
           </p>
-          <ul className="list-disc ml-6 mt-2 text-gray-500 text-sm">
-            <li>You haven't declared trust in anyone yet</li>
-            <li>People you trust haven't written any reviews{domain ? ' in this domain' : ''}</li>
-          </ul>
-          <div className="mt-4">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href="/trust"
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              className="inline-flex items-center justify-center px-5 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
             >
-              Add trusted people to expand your network
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              Add trusted people
+            </Link>
+            <Link
+              href="/search"
+              className="inline-flex items-center justify-center px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Search businesses
             </Link>
           </div>
+          {domain && (
+            <button
+              onClick={() => setDomain('')}
+              className="mt-4 text-sm text-purple-600 hover:text-purple-700"
+            >
+              Clear domain filter to see all reviews
+            </button>
+          )}
         </div>
       )}
 
@@ -157,13 +181,19 @@ export default function EndorsementsPage() {
               {/* Subject header */}
               <div className="flex items-start justify-between gap-4 mb-3">
                 <div>
-                  <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">
+                  <Link
+                    href={`/subject/${endorsement.subject}`}
+                    className="font-semibold text-lg text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  >
                     {endorsement.subjectName || 'Unknown business'}
-                  </h3>
+                  </Link>
                   <p className="text-sm text-gray-500">
                     Reviewed by{' '}
                     <span className="font-medium text-gray-700 dark:text-gray-300">
                       {authorDisplayName || 'Unknown author'}
+                    </span>
+                    <span className="text-gray-400 ml-1">
+                      · {hopDistance === 1 ? 'directly trusted' : `${hopDistance} hops away`}
                     </span>
                   </p>
                 </div>

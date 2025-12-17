@@ -55,6 +55,12 @@ export default function Home() {
     { enabled: isConnected && !!me }
   );
 
+  // Fetch network reviews count
+  const { data: networkFeed } = trpc.endorsements.getFeed.useQuery(
+    { limit: 100 },
+    { enabled: isConnected && !!me }
+  );
+
   const handleDisconnect = () => {
     disconnect();
     localStorage.removeItem('ttp-principal-id');
@@ -309,9 +315,12 @@ export default function Home() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900 dark:text-gray-100">
+                        <Link
+                          href={`/subject/${e.subject}`}
+                          className="font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        >
                           {e.subjectName || 'Unknown business'}
-                        </span>
+                        </Link>
                         <span className={`text-xs px-1.5 py-0.5 rounded ${
                           e.rating.score >= 0.8
                             ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
@@ -344,6 +353,38 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Network Reviews Summary */}
+      {networkFeed && networkFeed.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">From Your Network</h2>
+            <Link href="/endorsements" className="text-sm text-blue-600 hover:text-blue-700">
+              View all
+            </Link>
+          </div>
+          <Link
+            href="/endorsements"
+            className="block bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg p-5 border border-purple-200 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-700 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-purple-700 dark:text-purple-400">
+                  {networkFeed.length} reviews
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  from people you trust
+                </p>
+              </div>
+              <div className="text-purple-400 dark:text-purple-500">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </div>
+            </div>
+          </Link>
+        </section>
+      )}
+
       {/* Quick Links */}
       <section>
         <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">Explore</h2>
@@ -358,7 +399,7 @@ export default function Home() {
             href="/endorsements"
             className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-700"
           >
-            Network Endorsements
+            Network Reviews
           </Link>
         </div>
       </section>
