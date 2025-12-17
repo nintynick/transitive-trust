@@ -226,13 +226,18 @@ export async function getEndorsementsForSubject(
   return result.map((r) => recordToEndorsement(r.e));
 }
 
+export interface EndorsementWithSubject extends Endorsement {
+  subjectName?: string;
+  subjectType?: string;
+}
+
 export async function getEndorsementsByAuthor(
   authorId: PrincipalId,
   options: { domain?: DomainId; limit?: number; offset?: number } = {}
-): Promise<Endorsement[]> {
+): Promise<EndorsementWithSubject[]> {
   const { domain, limit = 20, offset = 0 } = options;
 
-  const result = await readQuery<{ e: EndorsementRecord }>(
+  const result = await readQuery<{ e: EndorsementRecord; subjectName: string | null; subjectType: string | null }>(
     `
     MATCH (author:Principal {id: $authorId})-[:AUTHORED]->(e:Endorsement)
     MATCH (e)-[:ENDORSES]->(subject:Subject)
@@ -256,7 +261,9 @@ export async function getEndorsementsByAuthor(
       relationship: e.relationship,
       verified: e.verified,
       signature: e.signature
-    } AS e
+    } AS e,
+    subject.name AS subjectName,
+    subject.type AS subjectType
     ORDER BY e.createdAt DESC
     SKIP toInteger($offset)
     LIMIT toInteger($limit)
@@ -264,7 +271,11 @@ export async function getEndorsementsByAuthor(
     { authorId, domain, limit: Math.floor(limit), offset: Math.floor(offset) }
   );
 
-  return result.map((r) => recordToEndorsement(r.e));
+  return result.map((r) => ({
+    ...recordToEndorsement(r.e),
+    subjectName: r.subjectName ?? undefined,
+    subjectType: r.subjectType ?? undefined,
+  }));
 }
 
 export async function updateEndorsement(
@@ -352,6 +363,13 @@ export async function deleteEndorsement(
   return result.length > 0 && result[0].deleted > 0;
 }
 
+export interface NetworkEndorsement {
+  endorsement: EndorsementWithSubject;
+  authorTrust: number;
+  hopDistance: number;
+  authorDisplayName?: string;
+}
+
 /**
  * Get endorsements from the viewer's trust network
  */
@@ -364,20 +382,43 @@ export async function getEndorsementsFromNetwork(
     minTrust?: number;
     limit?: number;
     offset?: number;
+    sortBy?: 'trust' | 'date' | 'rating';
+    sortOrder?: 'asc' | 'desc';
   } = {}
-): Promise<
-  Array<{
-    endorsement: Endorsement;
-    authorTrust: number;
-    hopDistance: number;
-  }>
-> {
-  const { domain, subjectId, maxHops = 4, minTrust = 0.01, limit = 20, offset = 0 } = options;
+): Promise<NetworkEndorsement[]> {
+  const {
+    domain,
+    subjectId,
+    maxHops = 4,
+    minTrust = 0.01,
+    limit = 20,
+    offset = 0,
+    sortBy = 'trust',
+    sortOrder = 'desc',
+  } = options;
+
+  // Build ORDER BY clause based on sort options
+  const orderDir = sortOrder === 'asc' ? 'ASC' : 'DESC';
+  let orderByClause: string;
+  switch (sortBy) {
+    case 'date':
+      orderByClause = `e.createdAt ${orderDir}`;
+      break;
+    case 'rating':
+      orderByClause = `e.ratingScore ${orderDir}, authorTrust DESC`;
+      break;
+    case 'trust':
+    default:
+      orderByClause = `authorTrust ${orderDir}, e.createdAt DESC`;
+  }
 
   const result = await readQuery<{
     e: EndorsementRecord;
     authorTrust: number;
     hopDistance: number;
+    subjectName: string | null;
+    subjectType: string | null;
+    authorDisplayName: string | null;
   }>(
     `
     MATCH path = (viewer:Principal {id: $viewerId})-[:TRUSTS*1..${maxHops}]->(author:Principal)
@@ -394,7 +435,7 @@ export async function getEndorsementsFromNetwork(
     MATCH (e)-[:ENDORSES]->(subject:Subject)
     MATCH (e)-[:FOR_DOMAIN]->(domain:Domain)
     ${domain ? "WHERE domain.id = $domain OR domain.id = '*'" : ''}
-    ${subjectId ? 'AND subject.id = $subjectId' : ''}
+    ${subjectId ? (domain ? 'AND' : 'WHERE') + ' subject.id = $subjectId' : ''}
 
     RETURN {
       id: e.id,
@@ -416,17 +457,38 @@ export async function getEndorsementsFromNetwork(
       signature: e.signature
     } AS e,
     authorTrust,
-    hopDistance
-    ORDER BY authorTrust DESC, e.createdAt DESC
+    hopDistance,
+    subject.name AS subjectName,
+    subject.type AS subjectType,
+    author.metadata AS authorDisplayName
+    ORDER BY ${orderByClause}
     SKIP toInteger($offset)
     LIMIT toInteger($limit)
     `,
     { viewerId, domain, subjectId, minTrust, limit: Math.floor(limit), offset: Math.floor(offset) }
   );
 
-  return result.map((r) => ({
-    endorsement: recordToEndorsement(r.e),
-    authorTrust: toNumber(r.authorTrust),
-    hopDistance: toNumber(r.hopDistance),
-  }));
+  return result.map((r) => {
+    // Parse author display name from metadata
+    let displayName: string | undefined;
+    try {
+      if (r.authorDisplayName) {
+        const metadata = JSON.parse(r.authorDisplayName);
+        displayName = metadata.displayName || metadata.name;
+      }
+    } catch {
+      // Ignore parse errors
+    }
+
+    return {
+      endorsement: {
+        ...recordToEndorsement(r.e),
+        subjectName: r.subjectName ?? undefined,
+        subjectType: r.subjectType ?? undefined,
+      },
+      authorTrust: toNumber(r.authorTrust),
+      hopDistance: toNumber(r.hopDistance),
+      authorDisplayName: displayName,
+    };
+  });
 }

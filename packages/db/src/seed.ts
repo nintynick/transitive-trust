@@ -62,8 +62,8 @@ interface TestSubject {
 // Test Ethereum addresses (valid hex addresses)
 // Format: 0x + 40 hex characters (0-9, a-f only)
 const TEST_ADDRESSES = {
-  // Main user - you can override with MAIN_USER_ADDRESS env var
-  mainUser: '0x1234567890123456789012345678901234567890',
+  // Main user - Nick's actual wallet address
+  nick: '0x516cAfD745Ec780D20f61c0d71fe258eA765222D',
   // Close friends (a11ce = alice, b0b = bob, ca401 = carol)
   alice: '0xa11ce00000000000000000000000000000000001',
   bob: '0xb0b0000000000000000000000000000000000002',
@@ -114,8 +114,8 @@ async function seed() {
   console.log('Connecting to Neo4j at', uri.replace(/\/\/.*@/, '//***@'));
   initDriver({ uri, user, password });
 
-  // Main test user address - use env var if provided (your actual wallet address)
-  const mainUserAddress = process.env.MAIN_USER_ADDRESS || TEST_ADDRESSES.mainUser;
+  // Main test user address - Nick's wallet address
+  const mainUserAddress = TEST_ADDRESSES.nick;
 
   // Check if main user exists BEFORE clearing
   const existingUser = await getPrincipalById(mainUserAddress);
@@ -131,21 +131,21 @@ async function seed() {
 
   const principals: TestPrincipal[] = [];
 
-  // Create or preserve main user
+  // Create or preserve main user (Nick)
   if (mainUserExists) {
     console.log(`  Using existing main user: ${mainUserAddress}`);
-    principals.push({ address: mainUserAddress, name: 'You (Test User)', bio: 'Main user' });
+    principals.push({ address: mainUserAddress, name: 'Nick', bio: 'Main user' });
   } else {
     const mainUser = await createPrincipal({
       type: 'user',
       publicKey: mainUserAddress,
       metadata: {
-        displayName: 'You (Test User)',
-        name: 'Test User',
-        bio: 'The main test account - this is you!',
+        displayName: 'Nick',
+        name: 'Nick',
+        bio: 'Transitive Trust Protocol developer and tester',
       },
     });
-    principals.push({ address: mainUser.id, name: 'You (Test User)', bio: 'Main user' });
+    principals.push({ address: mainUser.id, name: 'Nick', bio: 'Main user' });
     console.log(`  Created main user: ${mainUserAddress}`);
   }
 
@@ -321,6 +321,43 @@ async function seed() {
     console.log(`  Created: ${prod.name}`);
   }
 
+  // More restaurants for Nick's reviews
+  const moreRestaurants = [
+    { name: 'Sunset Thai', type: 'business' as const, domains: ['food', 'local'] },
+    { name: 'Blue Moon Brewery', type: 'business' as const, domains: ['food', 'local'] },
+    { name: 'Corner Bakery', type: 'business' as const, domains: ['food', 'local'] },
+    { name: 'Pho King Delicious', type: 'business' as const, domains: ['food', 'local'] },
+    { name: 'Napoli Pizza', type: 'business' as const, domains: ['food', 'local'] },
+  ];
+
+  for (const r of moreRestaurants) {
+    const s = await createSubject({
+      type: r.type,
+      canonicalName: r.name,
+      domains: r.domains,
+      location: { latitude: 37.7749 + (Math.random() - 0.5) * 0.1, longitude: -122.4194 + (Math.random() - 0.5) * 0.1 },
+    });
+    subjects.push({ id: s.id, name: r.name, type: r.type, domains: r.domains });
+    console.log(`  Created: ${r.name}`);
+  }
+
+  // More services
+  const moreServices = [
+    { name: 'Happy Paws Dog Walking', type: 'service' as const, domains: ['pets', 'local'] },
+    { name: 'Green Thumb Landscaping', type: 'service' as const, domains: ['home', 'local'] },
+    { name: 'ProTech Computer Repair', type: 'service' as const, domains: ['tech', 'local'] },
+  ];
+
+  for (const svc of moreServices) {
+    const s = await createSubject({
+      type: svc.type,
+      canonicalName: svc.name,
+      domains: svc.domains,
+    });
+    subjects.push({ id: s.id, name: svc.name, type: svc.type, domains: svc.domains });
+    console.log(`  Created: ${svc.name}`);
+  }
+
   // Helper to find subject by name
   const findSubject = (name: string) => {
     const s = subjects.find(s => s.name === name);
@@ -333,7 +370,7 @@ async function seed() {
   // ============================================
   console.log('\nCreating trust edges...');
 
-  // Main user -> Close friends (high trust)
+  // Nick -> Close friends (high trust)
   const mainUserEdges = [
     { to: 'Alice Chen', weight: 0.95, domain: '*' },
     { to: 'Bob Martinez', weight: 0.90, domain: '*' },
@@ -344,7 +381,7 @@ async function seed() {
 
   for (const edge of mainUserEdges) {
     await createTrustEdge(
-      findPrincipal('You (Test User)').address,
+      findPrincipal('Nick').address,
       {
         to: findPrincipal(edge.to).address,
         weight: edge.weight,
@@ -352,7 +389,7 @@ async function seed() {
       },
       testSignature
     );
-    console.log(`  You -> ${edge.to} (${edge.weight}, ${edge.domain})`);
+    console.log(`  Nick -> ${edge.to} (${edge.weight}, ${edge.domain})`);
   }
 
   // Alice's connections
@@ -597,6 +634,46 @@ async function seed() {
   }
 
   // ============================================
+  // NICK'S REVIEWS (Main user's endorsements)
+  // ============================================
+  console.log('\nCreating Nick\'s reviews...');
+
+  const nicksReviews = [
+    // Food places
+    { subject: "Joe's Coffee Shop", domain: 'food', rating: 0.92, summary: 'My go-to morning coffee spot. The pour-over is exceptional.' },
+    { subject: 'Sakura Sushi', domain: 'food', rating: 0.88, summary: 'Fresh fish, great omakase. A bit pricey but worth it for special occasions.' },
+    { subject: "Maria's Taqueria", domain: 'food', rating: 0.95, summary: 'Best carnitas in the city. The homemade tortillas are incredible!' },
+    { subject: 'Sunset Thai', domain: 'food', rating: 0.85, summary: 'Solid pad thai and great green curry. Fast delivery too.' },
+    { subject: 'Blue Moon Brewery', domain: 'food', rating: 0.78, summary: 'Good craft beer selection. Food is decent but come for the beer.' },
+    { subject: 'Corner Bakery', domain: 'food', rating: 0.90, summary: 'Amazing croissants and sourdough. Get there early before they sell out!' },
+    { subject: 'Pho King Delicious', domain: 'food', rating: 0.82, summary: 'Huge portions, flavorful broth. Cash only but very affordable.' },
+    { subject: 'Napoli Pizza', domain: 'food', rating: 0.88, summary: 'Authentic Neapolitan style. The margherita is perfection.' },
+    // Services
+    { subject: "Mike's Plumbing", domain: 'home', rating: 0.90, summary: 'Fixed my kitchen sink same day. Fair prices and professional.' },
+    { subject: 'QuickFix Auto Repair', domain: 'auto', rating: 0.85, summary: 'Honest mechanics. Explained everything before doing the work.' },
+    { subject: 'Happy Paws Dog Walking', domain: 'pets', rating: 0.92, summary: 'My dog loves Sarah! Always sends photos during walks.' },
+    { subject: 'ProTech Computer Repair', domain: 'tech', rating: 0.80, summary: 'Recovered my data after hard drive failure. Saved my bacon!' },
+    // Products
+    { subject: 'TechPro Wireless Earbuds', domain: 'tech', rating: 0.75, summary: 'Good sound quality but the case scratches easily. Battery life is solid.' },
+    { subject: 'CloudComfort Mattress', domain: 'home', rating: 0.88, summary: 'Best sleep I\'ve had in years. Took a week to break in but worth it.' },
+  ];
+
+  for (const review of nicksReviews) {
+    await createEndorsement(
+      mainUserAddress,
+      {
+        subject: findSubject(review.subject).id,
+        domain: review.domain,
+        rating: { score: review.rating, originalScore: `${Math.round(review.rating * 5)} out of 5`, originalScale: '1-5 stars' },
+        content: { summary: review.summary },
+        context: { verified: true, relationship: 'recurring' },
+      },
+      testSignature
+    );
+    console.log(`  Nick -> ${review.subject} (${review.rating})`);
+  }
+
+  // ============================================
   // SUMMARY
   // ============================================
   console.log('\n========================================');
@@ -607,13 +684,10 @@ async function seed() {
   console.log('Created trust network with multiple hop distances');
   console.log('Created endorsements with varying trust levels\n');
 
-  console.log('Main test user address:', mainUserAddress);
-  console.log('\nTo test with your own wallet:');
-  console.log('1. Connect your MetaMask wallet to the app');
-  console.log('2. Your wallet address becomes your principal ID');
-  console.log('3. The seed data uses test addresses - to see personalized');
-  console.log('   scores, you would need to trust some of these test users');
-  console.log('\nTest addresses you can trust:');
+  console.log('Main user (Nick):', mainUserAddress);
+  console.log('\nNick\'s reviews: 14 endorsements created');
+  console.log('Connect with wallet 0x516cAfD...222D to see the full network.\n');
+  console.log('Test addresses in the network:');
   console.log(`  Alice Chen: ${TEST_ADDRESSES.alice}`);
   console.log(`  Bob Martinez: ${TEST_ADDRESSES.bob}`);
   console.log(`  Carol Williams: ${TEST_ADDRESSES.carol}`);

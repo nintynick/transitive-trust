@@ -289,9 +289,9 @@ export default function Home() {
             View all
           </Link>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
           {!hasEndorsements ? (
-            <div className="text-center py-6">
+            <div className="text-center py-6 px-5">
               <p className="text-gray-500 text-sm mb-3">
                 You haven't written any reviews yet
               </p>
@@ -303,26 +303,43 @@ export default function Home() {
               </Link>
             </div>
           ) : (
-            <ul className="space-y-3">
+            <ul className="divide-y divide-gray-100 dark:divide-gray-700">
               {myEndorsements?.slice(0, 5).map((e) => (
-                <li key={e.id} className="text-sm py-1 border-b border-gray-100 dark:border-gray-700 last:border-0 pb-2 last:pb-0">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[300px]">
-                      {e.content?.summary || 'Review'}
-                    </span>
-                    <span className="text-xs text-gray-500 ml-2">
-                      {Math.round(e.rating.score * 100)}%
-                    </span>
+                <li key={e.id} className="px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900 dark:text-gray-100">
+                          {e.subjectName || e.subject.slice(0, 12) + '...'}
+                        </span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                          e.rating.score >= 0.8
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                            : e.rating.score >= 0.6
+                              ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                              : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                        }`}>
+                          {Math.round(e.rating.score * 100)}%
+                        </span>
+                      </div>
+                      {e.content?.summary && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-1">
+                          {e.content.summary}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-400 whitespace-nowrap">{e.domain}</span>
                   </div>
-                  <span className="text-xs text-gray-400">{e.domain}</span>
                 </li>
               ))}
-              {myEndorsements && myEndorsements.length > 5 && (
-                <li className="text-sm text-gray-500 pt-1">
-                  +{myEndorsements.length - 5} more reviews
-                </li>
-              )}
             </ul>
+          )}
+          {myEndorsements && myEndorsements.length > 5 && (
+            <div className="px-5 py-3 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700">
+              <Link href="/endorsements" className="text-sm text-blue-600 hover:text-blue-700">
+                View all {myEndorsements.length} reviews
+              </Link>
+            </div>
           )}
         </div>
       </section>

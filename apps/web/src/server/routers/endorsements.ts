@@ -151,6 +151,8 @@ export const endorsementsRouter = router({
         minTrust: z.number().min(0).max(1).optional().default(0.01),
         limit: z.number().int().min(1).max(100).optional().default(20),
         offset: z.number().int().min(0).optional().default(0),
+        sortBy: z.enum(['trust', 'date', 'rating']).optional().default('trust'),
+        sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -161,6 +163,8 @@ export const endorsementsRouter = router({
         minTrust: input.minTrust,
         limit: input.limit,
         offset: input.offset,
+        sortBy: input.sortBy,
+        sortOrder: input.sortOrder,
       });
     }),
 });
