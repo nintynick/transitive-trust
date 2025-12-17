@@ -6,7 +6,7 @@ import { trpc } from '@/lib/trpc';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
-// Dynamic import to avoid SSR issues with D3
+// Dynamic imports to avoid SSR issues with D3
 const TrustNetworkGraph = dynamic(
   () => import('@/components/trust-network/TrustNetworkGraph').then((mod) => mod.TrustNetworkGraph),
   {
@@ -14,6 +14,18 @@ const TrustNetworkGraph = dynamic(
     loading: () => (
       <div className="w-full h-[300px] bg-gray-50 dark:bg-gray-900 rounded-lg flex items-center justify-center">
         <p className="text-gray-500">Loading network...</p>
+      </div>
+    ),
+  }
+);
+
+const PublicNetworkExplorer = dynamic(
+  () => import('@/components/trust-network/PublicNetworkExplorer').then((mod) => mod.PublicNetworkExplorer),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-[400px] bg-gray-50 dark:bg-gray-900 rounded-lg flex items-center justify-center">
+        <p className="text-gray-500">Loading network explorer...</p>
       </div>
     ),
   }
@@ -61,70 +73,135 @@ export default function Home() {
     { enabled: isConnected && !!me }
   );
 
+  // Fetch public network for logged-out users
+  const { data: publicNetwork } = trpc.trust.getPublicNetwork.useQuery(
+    { limit: 50, includeEndorsements: true },
+    { enabled: !isConnected }
+  );
+
   const handleDisconnect = () => {
     disconnect();
     localStorage.removeItem('ttp-principal-id');
   };
 
-  // Not connected - show connect wallet
+  // Handle connect action for the CTA button
+  const handleConnect = () => {
+    const defaultConnector = connectors[0];
+    if (defaultConnector) {
+      connect({ connector: defaultConnector });
+    }
+  };
+
+  // Not connected - show network explorer + connect wallet
   if (!isConnected) {
     return (
-      <main className="min-h-screen p-8 max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8">Transitive Trust Protocol</h1>
-        <p className="text-gray-600 dark:text-gray-400 mb-8">
-          A decentralized system for perspectival trust and reputation
-        </p>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
-          <h2 className="text-xl font-semibold mb-4">Connect Your Wallet</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Connect your Ethereum wallet to start building your trust network.
-            Your wallet address will be your identity.
+      <main className="min-h-screen p-8 max-w-5xl mx-auto">
+        {/* Hero section */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold mb-4">Transitive Trust Protocol</h1>
+          <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+            Discover businesses through people you trust, not anonymous strangers.
+            A decentralized network for real recommendations.
           </p>
+        </div>
 
-          <div className="space-y-3">
-            {connectors.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                No wallet detected. Please install MetaMask or another Ethereum wallet.
-              </p>
+        {/* Network Explorer */}
+        <section className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              Explore the Network
+            </h2>
+            <span className="text-sm text-gray-500">Live data</span>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-lg">
+            {publicNetwork ? (
+              <PublicNetworkExplorer
+                nodes={publicNetwork.nodes}
+                edges={publicNetwork.edges}
+                stats={publicNetwork.stats}
+                onConnect={handleConnect}
+              />
             ) : (
-              connectors.map((connector) => (
-                <button
-                  key={connector.uid}
-                  onClick={() => connect({ connector })}
-                  disabled={isConnecting}
-                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {isConnecting ? 'Connecting...' : `Connect ${connector.name}`}
-                </button>
-              ))
+              <div className="h-[400px] flex items-center justify-center">
+                <p className="text-gray-500">Loading network...</p>
+              </div>
             )}
+          </div>
+        </section>
+
+        {/* Connect wallet card */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-8 shadow-xl mb-10">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="text-white text-center md:text-left">
+              <h2 className="text-2xl font-bold mb-2">Ready to join?</h2>
+              <p className="text-blue-100">
+                Connect your Ethereum wallet to start building your own trust network
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 w-full md:w-auto">
+              {connectors.length === 0 ? (
+                <p className="text-sm text-blue-100">
+                  No wallet detected. Please install MetaMask or another Ethereum wallet.
+                </p>
+              ) : (
+                connectors.map((connector) => (
+                  <button
+                    key={connector.uid}
+                    onClick={() => connect({ connector })}
+                    disabled={isConnecting}
+                    className="px-8 py-3 bg-white text-blue-600 rounded-lg hover:bg-gray-100 disabled:opacity-50 font-semibold transition-colors shadow-md"
+                  >
+                    {isConnecting ? 'Connecting...' : `Connect ${connector.name}`}
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="mt-12">
-          <h2 className="text-2xl font-semibold mb-4">How It Works</h2>
+        {/* How it works */}
+        <section className="mb-10">
+          <h2 className="text-2xl font-semibold mb-6 text-center">How It Works</h2>
           <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
-              <h3 className="font-semibold mb-2">1. Trust People's Judgment</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
+                <span className="text-blue-600 dark:text-blue-400 font-bold">1</span>
+              </div>
+              <h3 className="font-semibold mb-2">Trust People's Judgment</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Identify people whose recommendations you value — friends with great taste, experts in specific areas
               </p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
-              <h3 className="font-semibold mb-2">2. Share Endorsements</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+              <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
+                <span className="text-green-600 dark:text-green-400 font-bold">2</span>
+              </div>
+              <h3 className="font-semibold mb-2">Share Endorsements</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Write reviews of businesses and services. Your endorsements help people who trust you.
               </p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
-              <h3 className="font-semibold mb-2">3. Get Personalized Scores</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+              <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mb-4">
+                <span className="text-purple-600 dark:text-purple-400 font-bold">3</span>
+              </div>
+              <h3 className="font-semibold mb-2">Get Personalized Scores</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 See ratings based on what people you trust think, not anonymous strangers
               </p>
             </div>
           </div>
-        </div>
+        </section>
+
+        {/* Value prop */}
+        <section className="text-center py-8 border-t border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-semibold mb-4">Why trust matters</h2>
+          <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+            Anonymous reviews can be faked. Star ratings don't tell the full story.
+            But recommendations from people you trust? That's how real decisions get made.
+            The Transitive Trust Protocol brings that personal network online.
+          </p>
+        </section>
       </main>
     );
   }

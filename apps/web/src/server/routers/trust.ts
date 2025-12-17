@@ -3,7 +3,7 @@
  */
 
 import { z } from 'zod';
-import { router, protectedProcedure } from '../trpc';
+import { router, protectedProcedure, publicProcedure } from '../trpc';
 import {
   CreateTrustEdgeInputSchema,
   CreateDistrustEdgeInputSchema,
@@ -22,6 +22,7 @@ import {
   getTrustNetworkWithEndorsements,
   getTrustConnection,
   getPrincipalById,
+  getPublicNetworkSnapshot,
 } from '@ttp/db';
 import { TRPCError } from '@trpc/server';
 import { verifyPrincipalSignature, hasValidSignature } from '../lib/verify';
@@ -174,6 +175,21 @@ export const trustRouter = router({
       return getTrustConnection(ctx.viewer.id, input.targetId, {
         domain: input.domain,
         maxHops: input.maxHops,
+      });
+    }),
+
+  // Public endpoint for exploring the network (no auth required)
+  getPublicNetwork: publicProcedure
+    .input(
+      z.object({
+        limit: z.number().int().min(1).max(100).optional().default(50),
+        includeEndorsements: z.boolean().optional().default(true),
+      })
+    )
+    .query(async ({ input }) => {
+      return getPublicNetworkSnapshot({
+        limit: input.limit,
+        includeEndorsements: input.includeEndorsements,
       });
     }),
 });

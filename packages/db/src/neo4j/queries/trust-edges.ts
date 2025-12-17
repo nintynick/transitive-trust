@@ -558,6 +558,212 @@ export async function getTrustConnection(
 }
 
 /**
+ * Get a public snapshot of the trust network (not from any specific viewer's perspective)
+ * Used for logged-out users to explore the network
+ */
+export async function getPublicNetworkSnapshot(
+  options: {
+    limit?: number;
+    includeEndorsements?: boolean;
+  } = {}
+): Promise<{
+  nodes: Array<{
+    id: string;
+    type: 'principal' | 'subject';
+    displayName?: string;
+    trustCount: number;
+    endorsementCount: number;
+  }>;
+  edges: Array<{
+    from: string;
+    to: string;
+    type: 'trust' | 'endorsement';
+    weight: number;
+    domain: string;
+  }>;
+  stats: {
+    totalPrincipals: number;
+    totalEdges: number;
+    totalSubjects: number;
+    totalEndorsements: number;
+  };
+}> {
+  const { limit = 50, includeEndorsements = true } = options;
+  const intLimit = Math.floor(limit);
+
+  // Get network stats
+  const statsResult = await readQuery<{
+    principals: number;
+    edges: number;
+    subjects: number;
+    endorsements: number;
+  }>(
+    `
+    MATCH (p:Principal)
+    WHERE p.isPending IS NULL OR p.isPending = false
+    WITH count(p) AS principals
+    OPTIONAL MATCH ()-[r:TRUSTS]->()
+    WHERE r.expiresAt IS NULL OR r.expiresAt > datetime()
+    WITH principals, count(r) AS edges
+    OPTIONAL MATCH (s:Subject)
+    WITH principals, edges, count(s) AS subjects
+    OPTIONAL MATCH (e:Endorsement)
+    RETURN principals, edges, subjects, count(e) AS endorsements
+    `
+  );
+
+  const stats = statsResult[0] || { principals: 0, edges: 0, subjects: 0, endorsements: 0 };
+
+  // Get the most connected principals (by number of trust edges)
+  const principalNodes = await readQuery<{
+    id: string;
+    metadata: string;
+    trustCount: number;
+    endorsementCount: number;
+  }>(
+    `
+    MATCH (p:Principal)
+    WHERE p.isPending IS NULL OR p.isPending = false
+    OPTIONAL MATCH (p)-[outgoing:TRUSTS]->()
+    WHERE outgoing.expiresAt IS NULL OR outgoing.expiresAt > datetime()
+    OPTIONAL MATCH ()-[incoming:TRUSTS]->(p)
+    WHERE incoming.expiresAt IS NULL OR incoming.expiresAt > datetime()
+    OPTIONAL MATCH (p)-[:AUTHORED]->(e:Endorsement)
+    WITH p, count(DISTINCT outgoing) + count(DISTINCT incoming) AS trustCount, count(DISTINCT e) AS endorsementCount
+    WHERE trustCount > 0 OR endorsementCount > 0
+    RETURN p.id AS id, p.metadata AS metadata, trustCount, endorsementCount
+    ORDER BY trustCount DESC, endorsementCount DESC
+    LIMIT toInteger($limit)
+    `,
+    { limit: intLimit }
+  );
+
+  // Get trust edges between the top principals
+  const principalIds = principalNodes.map((n) => n.id);
+
+  const trustEdges = await readQuery<{
+    from: string;
+    to: string;
+    weight: number;
+    domain: string;
+  }>(
+    `
+    MATCH (from:Principal)-[r:TRUSTS]->(to:Principal)
+    WHERE from.id IN $principalIds
+      AND to.id IN $principalIds
+      AND (r.expiresAt IS NULL OR r.expiresAt > datetime())
+    RETURN DISTINCT
+      from.id AS from,
+      to.id AS to,
+      r.weight AS weight,
+      r.domain AS domain
+    `,
+    { principalIds }
+  );
+
+  // Parse principal nodes
+  const nodes: Array<{
+    id: string;
+    type: 'principal' | 'subject';
+    displayName?: string;
+    trustCount: number;
+    endorsementCount: number;
+  }> = principalNodes.map((n) => {
+    let displayName: string | undefined;
+    try {
+      const metadata = JSON.parse(n.metadata || '{}');
+      displayName = metadata.displayName || metadata.name;
+    } catch {
+      // Ignore parse errors
+    }
+    return {
+      id: n.id,
+      type: 'principal' as const,
+      displayName,
+      trustCount: toNumber(n.trustCount),
+      endorsementCount: toNumber(n.endorsementCount),
+    };
+  });
+
+  // Build edges array
+  const edges: Array<{
+    from: string;
+    to: string;
+    type: 'trust' | 'endorsement';
+    weight: number;
+    domain: string;
+  }> = trustEdges.map((e) => ({
+    from: e.from,
+    to: e.to,
+    type: 'trust' as const,
+    weight: e.weight,
+    domain: e.domain,
+  }));
+
+  // Get endorsements and subjects if requested
+  if (includeEndorsements && principalIds.length > 0) {
+    const endorsementData = await readQuery<{
+      authorId: string;
+      subjectId: string;
+      subjectName: string;
+      rating: number;
+      domain: string;
+    }>(
+      `
+      MATCH (author:Principal)-[:AUTHORED]->(e:Endorsement)-[:ENDORSES]->(subject:Subject)
+      MATCH (e)-[:FOR_DOMAIN]->(d:Domain)
+      WHERE author.id IN $principalIds
+      RETURN DISTINCT
+        author.id AS authorId,
+        subject.id AS subjectId,
+        subject.canonicalName AS subjectName,
+        e.ratingScore AS rating,
+        d.id AS domain
+      LIMIT toInteger($limit)
+      `,
+      { principalIds, limit: intLimit }
+    );
+
+    // Track unique subjects
+    const subjectIds = new Set<string>();
+
+    for (const e of endorsementData) {
+      // Add subject node if not already added
+      if (!subjectIds.has(e.subjectId)) {
+        subjectIds.add(e.subjectId);
+        nodes.push({
+          id: e.subjectId,
+          type: 'subject',
+          displayName: e.subjectName || undefined,
+          trustCount: 0,
+          endorsementCount: 0,
+        });
+      }
+
+      // Add endorsement edge
+      edges.push({
+        from: e.authorId,
+        to: e.subjectId,
+        type: 'endorsement',
+        weight: toNumber(e.rating),
+        domain: e.domain,
+      });
+    }
+  }
+
+  return {
+    nodes,
+    edges,
+    stats: {
+      totalPrincipals: toNumber(stats.principals),
+      totalEdges: toNumber(stats.edges),
+      totalSubjects: toNumber(stats.subjects),
+      totalEndorsements: toNumber(stats.endorsements),
+    },
+  };
+}
+
+/**
  * Get the trust network with endorsements and subjects included
  */
 export async function getTrustNetworkWithEndorsements(
