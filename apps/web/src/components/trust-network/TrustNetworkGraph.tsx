@@ -290,7 +290,7 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
           x: event.clientX - rect.left,
           y: event.clientY - rect.top - 10,
           content: d.isViewer
-            ? 'You (viewer)'
+            ? 'You (viewer)\n(Click to view profile)'
             : `${name}\nTrust: ${(d.effectiveTrust * 100).toFixed(0)}%\nHops: ${d.hopDistance}\n(Click to view profile)`,
         });
       })
@@ -300,9 +300,7 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
       .on('click', (event, d) => {
         // Don't navigate if this was a drag
         if (event.defaultPrevented) return;
-        // Skip navigation for the viewer node
-        if (d.isViewer) return;
-        // Navigate to the profile page for this principal
+        // Navigate to the profile page
         window.location.href = `/profile/${d.id}`;
       });
 

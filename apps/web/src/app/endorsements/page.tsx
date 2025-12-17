@@ -9,12 +9,12 @@ type SortOrder = 'asc' | 'desc';
 
 const DOMAIN_OPTIONS = [
   { value: '', label: 'All domains' },
-  { value: 'food', label: 'Food & Dining' },
-  { value: 'tech', label: 'Technology' },
-  { value: 'home', label: 'Home Services' },
-  { value: 'auto', label: 'Auto Services' },
-  { value: 'pets', label: 'Pets' },
-  { value: 'local', label: 'Local' },
+  { value: 'defi', label: 'DeFi' },
+  { value: 'security', label: 'Security & Audit' },
+  { value: 'infrastructure', label: 'Infrastructure' },
+  { value: 'wallets', label: 'Wallets' },
+  { value: 'nft', label: 'NFT' },
+  { value: 'staking', label: 'Staking' },
 ];
 
 export default function EndorsementsPage() {

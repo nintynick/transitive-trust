@@ -268,33 +268,32 @@ async function seed() {
 
   const subjects: TestSubject[] = [];
 
-  // Restaurants
-  const restaurants = [
-    { name: "Joe's Coffee Shop", type: 'business' as const, domains: ['food', 'local'] },
-    { name: 'Sakura Sushi', type: 'business' as const, domains: ['food', 'local'] },
-    { name: 'The Green Fork', type: 'business' as const, domains: ['food', 'local'] },
-    { name: "Maria's Taqueria", type: 'business' as const, domains: ['food', 'local'] },
+  // DeFi Protocols
+  const defiProtocols = [
+    { name: 'Uniswap', type: 'service' as const, domains: ['defi', 'dex'] },
+    { name: 'Aave', type: 'service' as const, domains: ['defi', 'lending'] },
+    { name: 'Compound', type: 'service' as const, domains: ['defi', 'lending'] },
+    { name: 'Curve Finance', type: 'service' as const, domains: ['defi', 'dex'] },
   ];
 
-  for (const r of restaurants) {
+  for (const p of defiProtocols) {
     const s = await createSubject({
-      type: r.type,
-      canonicalName: r.name,
-      domains: r.domains,
-      location: { latitude: 37.7749 + (Math.random() - 0.5) * 0.1, longitude: -122.4194 + (Math.random() - 0.5) * 0.1 },
+      type: p.type,
+      canonicalName: p.name,
+      domains: p.domains,
     });
-    subjects.push({ id: s.id, name: r.name, type: r.type, domains: r.domains });
-    console.log(`  Created: ${r.name}`);
+    subjects.push({ id: s.id, name: p.name, type: p.type, domains: p.domains });
+    console.log(`  Created: ${p.name}`);
   }
 
-  // Services
-  const services = [
-    { name: "Mike's Plumbing", type: 'service' as const, domains: ['home', 'local'] },
-    { name: 'QuickFix Auto Repair', type: 'service' as const, domains: ['auto', 'local'] },
-    { name: 'Sparkle Clean Housekeeping', type: 'service' as const, domains: ['home', 'local'] },
+  // Security & Audit Services
+  const securityServices = [
+    { name: 'Trail of Bits', type: 'service' as const, domains: ['security', 'audit'] },
+    { name: 'OpenZeppelin', type: 'service' as const, domains: ['security', 'audit'] },
+    { name: 'Consensys Diligence', type: 'service' as const, domains: ['security', 'audit'] },
   ];
 
-  for (const svc of services) {
+  for (const svc of securityServices) {
     const s = await createSubject({
       type: svc.type,
       canonicalName: svc.name,
@@ -304,14 +303,14 @@ async function seed() {
     console.log(`  Created: ${svc.name}`);
   }
 
-  // Products
-  const products = [
-    { name: 'TechPro Wireless Earbuds', type: 'product' as const, domains: ['tech', 'electronics'] },
-    { name: 'EcoSmart Water Bottle', type: 'product' as const, domains: ['products', 'eco'] },
-    { name: 'CloudComfort Mattress', type: 'product' as const, domains: ['products', 'home'] },
+  // Hardware & Wallets
+  const walletProducts = [
+    { name: 'Ledger Nano X', type: 'product' as const, domains: ['wallets', 'hardware'] },
+    { name: 'Trezor Model T', type: 'product' as const, domains: ['wallets', 'hardware'] },
+    { name: 'Rainbow Wallet', type: 'product' as const, domains: ['wallets', 'mobile'] },
   ];
 
-  for (const prod of products) {
+  for (const prod of walletProducts) {
     const s = await createSubject({
       type: prod.type,
       canonicalName: prod.name,
@@ -321,34 +320,33 @@ async function seed() {
     console.log(`  Created: ${prod.name}`);
   }
 
-  // More restaurants for Nick's reviews
-  const moreRestaurants = [
-    { name: 'Sunset Thai', type: 'business' as const, domains: ['food', 'local'] },
-    { name: 'Blue Moon Brewery', type: 'business' as const, domains: ['food', 'local'] },
-    { name: 'Corner Bakery', type: 'business' as const, domains: ['food', 'local'] },
-    { name: 'Pho King Delicious', type: 'business' as const, domains: ['food', 'local'] },
-    { name: 'Napoli Pizza', type: 'business' as const, domains: ['food', 'local'] },
+  // More DeFi / Web3 Services
+  const moreDefi = [
+    { name: 'Lido', type: 'service' as const, domains: ['defi', 'staking'] },
+    { name: 'Eigenlayer', type: 'service' as const, domains: ['defi', 'staking'] },
+    { name: 'Chainlink', type: 'service' as const, domains: ['infrastructure', 'oracles'] },
+    { name: 'The Graph', type: 'service' as const, domains: ['infrastructure', 'indexing'] },
+    { name: 'Alchemy', type: 'service' as const, domains: ['infrastructure', 'rpc'] },
   ];
 
-  for (const r of moreRestaurants) {
+  for (const p of moreDefi) {
     const s = await createSubject({
-      type: r.type,
-      canonicalName: r.name,
-      domains: r.domains,
-      location: { latitude: 37.7749 + (Math.random() - 0.5) * 0.1, longitude: -122.4194 + (Math.random() - 0.5) * 0.1 },
+      type: p.type,
+      canonicalName: p.name,
+      domains: p.domains,
     });
-    subjects.push({ id: s.id, name: r.name, type: r.type, domains: r.domains });
-    console.log(`  Created: ${r.name}`);
+    subjects.push({ id: s.id, name: p.name, type: p.type, domains: p.domains });
+    console.log(`  Created: ${p.name}`);
   }
 
-  // More services
-  const moreServices = [
-    { name: 'Happy Paws Dog Walking', type: 'service' as const, domains: ['pets', 'local'] },
-    { name: 'Green Thumb Landscaping', type: 'service' as const, domains: ['home', 'local'] },
-    { name: 'ProTech Computer Repair', type: 'service' as const, domains: ['tech', 'local'] },
+  // NFT Marketplaces & Tools
+  const nftServices = [
+    { name: 'OpenSea', type: 'service' as const, domains: ['nft', 'marketplace'] },
+    { name: 'Blur', type: 'service' as const, domains: ['nft', 'marketplace'] },
+    { name: 'Zora', type: 'service' as const, domains: ['nft', 'protocol'] },
   ];
 
-  for (const svc of moreServices) {
+  for (const svc of nftServices) {
     const s = await createSubject({
       type: svc.type,
       canonicalName: svc.name,
@@ -476,161 +474,161 @@ async function seed() {
   // ============================================
   console.log('\nCreating endorsements...');
 
-  // Joe's Coffee Shop - mixed reviews from different trust levels
-  const joesReviews = [
-    { author: 'Alice Chen', rating: 0.9, summary: 'Best latte in the city! The baristas really know their craft.', verified: true },
-    { author: 'Frank Garcia', rating: 0.85, summary: 'Great atmosphere and excellent pastries. A bit pricey.', verified: true },
-    { author: 'Bob Martinez', rating: 0.8, summary: 'Good coffee, friendly staff. My go-to morning spot.', verified: false },
-    { author: 'Random Reviewer', rating: 0.3, summary: 'Terrible service, waited 20 minutes for a simple coffee.', verified: false },
+  // Uniswap - mixed reviews from different trust levels
+  const uniswapReviews = [
+    { author: 'Alice Chen', rating: 0.95, summary: 'Best DEX in the space. V3 concentrated liquidity is game-changing.', verified: true },
+    { author: 'Frank Garcia', rating: 0.88, summary: 'Reliable swaps, great liquidity. Gas can be expensive on L1.', verified: true },
+    { author: 'Bob Martinez', rating: 0.85, summary: 'Been using it since V1. Rock solid and trustworthy.', verified: false },
+    { author: 'Random Reviewer', rating: 0.3, summary: 'Lost money on impermanent loss. Terrible protocol!', verified: false },
   ];
 
-  for (const review of joesReviews) {
+  for (const review of uniswapReviews) {
     await createEndorsement(
       findPrincipal(review.author).address,
       {
-        subject: findSubject("Joe's Coffee Shop").id,
-        domain: 'food',
-        rating: { score: review.rating, originalScore: `${Math.round(review.rating * 5)} out of 5`, originalScale: '1-5 stars' },
-        content: { summary: review.summary },
-        context: { verified: review.verified, relationship: 'one-time' },
-      },
-      testSignature
-    );
-    console.log(`  ${review.author} -> Joe's Coffee (${review.rating})`);
-  }
-
-  // Sakura Sushi
-  const sakuraReviews = [
-    { author: 'Alice Chen', rating: 0.95, summary: 'Authentic Japanese cuisine. The omakase is incredible!', verified: true },
-    { author: 'Iris Davis', rating: 0.88, summary: 'Fresh fish, great presentation. Definitely worth the price.', verified: true },
-    { author: 'Kate Thompson', rating: 0.75, summary: 'Good sushi but the wait can be long on weekends.', verified: false },
-  ];
-
-  for (const review of sakuraReviews) {
-    await createEndorsement(
-      findPrincipal(review.author).address,
-      {
-        subject: findSubject('Sakura Sushi').id,
-        domain: 'food',
+        subject: findSubject('Uniswap').id,
+        domain: 'defi',
         rating: { score: review.rating, originalScore: `${Math.round(review.rating * 5)} out of 5`, originalScale: '1-5 stars' },
         content: { summary: review.summary },
         context: { verified: review.verified, relationship: 'recurring' },
       },
       testSignature
     );
-    console.log(`  ${review.author} -> Sakura Sushi (${review.rating})`);
+    console.log(`  ${review.author} -> Uniswap (${review.rating})`);
   }
 
-  // Mike's Plumbing
-  const mikesReviews = [
-    { author: 'Bob Martinez', rating: 0.92, summary: 'Fixed our emergency leak at 11pm. Honest pricing, great work!', verified: true },
-    { author: 'Grace Kim', rating: 0.85, summary: 'Professional and punctual. Would hire again.', verified: true },
-    { author: 'Jack Wilson', rating: 0.78, summary: 'Did a good job on bathroom renovation. Slightly over budget.', verified: true },
-    { author: 'Suspicious Sam', rating: 0.95, summary: 'BEST PLUMBER EVER!!!!! 5 STARS!!!!!', verified: false },
+  // Aave
+  const aaveReviews = [
+    { author: 'Alice Chen', rating: 0.92, summary: 'Best lending protocol. Safety module gives me confidence.', verified: true },
+    { author: 'Iris Davis', rating: 0.88, summary: 'Great for earning yield on stables. V3 is even better.', verified: true },
+    { author: 'Kate Thompson', rating: 0.78, summary: 'Good rates but liquidation thresholds can be risky.', verified: false },
   ];
 
-  for (const review of mikesReviews) {
+  for (const review of aaveReviews) {
     await createEndorsement(
       findPrincipal(review.author).address,
       {
-        subject: findSubject("Mike's Plumbing").id,
-        domain: 'home',
-        rating: { score: review.rating, originalScore: `${Math.round(review.rating * 5)} out of 5`, originalScale: '1-5 stars' },
-        content: { summary: review.summary },
-        context: { verified: review.verified, relationship: 'one-time' },
-      },
-      testSignature
-    );
-    console.log(`  ${review.author} -> Mike's Plumbing (${review.rating})`);
-  }
-
-  // TechPro Wireless Earbuds
-  const techProReviews = [
-    { author: 'Carol Williams', rating: 0.88, summary: 'Excellent sound quality and battery life. Great for commuting.', verified: true },
-    { author: 'Henry Brown', rating: 0.82, summary: 'Good value for money. ANC could be better.', verified: true },
-    { author: 'Maya Patel', rating: 0.70, summary: 'Decent earbuds but the fit is not great for small ears.', verified: false },
-    { author: 'Eva Johnson', rating: 0.75, summary: 'Works well for calls. Music quality is just okay.', verified: false },
-  ];
-
-  for (const review of techProReviews) {
-    await createEndorsement(
-      findPrincipal(review.author).address,
-      {
-        subject: findSubject('TechPro Wireless Earbuds').id,
-        domain: 'tech',
-        rating: { score: review.rating, originalScore: `${Math.round(review.rating * 5)} out of 5`, originalScale: '1-5 stars' },
-        content: { summary: review.summary },
-        context: { verified: review.verified, relationship: 'one-time' },
-      },
-      testSignature
-    );
-    console.log(`  ${review.author} -> TechPro Earbuds (${review.rating})`);
-  }
-
-  // QuickFix Auto Repair
-  const quickfixReviews = [
-    { author: 'David Lee', rating: 0.85, summary: 'Honest mechanics. Fixed my brakes quickly and fairly priced.', verified: true },
-    { author: 'Bob Martinez', rating: 0.90, summary: 'Been taking my car here for years. Trustworthy team.', verified: true },
-    { author: 'Leo Anderson', rating: 0.72, summary: 'Good work but a bit slow. Had to wait 3 days for parts.', verified: false },
-  ];
-
-  for (const review of quickfixReviews) {
-    await createEndorsement(
-      findPrincipal(review.author).address,
-      {
-        subject: findSubject('QuickFix Auto Repair').id,
-        domain: 'auto',
+        subject: findSubject('Aave').id,
+        domain: 'defi',
         rating: { score: review.rating, originalScore: `${Math.round(review.rating * 5)} out of 5`, originalScale: '1-5 stars' },
         content: { summary: review.summary },
         context: { verified: review.verified, relationship: 'recurring' },
       },
       testSignature
     );
-    console.log(`  ${review.author} -> QuickFix Auto (${review.rating})`);
+    console.log(`  ${review.author} -> Aave (${review.rating})`);
   }
 
-  // The Green Fork
-  const greenForkReviews = [
-    { author: 'Iris Davis', rating: 0.92, summary: 'Amazing vegan options! The cauliflower steak is a must-try.', verified: true },
-    { author: 'Alice Chen', rating: 0.78, summary: 'Creative menu but portions are small for the price.', verified: true },
-    { author: 'Random Reviewer', rating: 0.98, summary: 'Best restaurant I have ever been to in my entire life!', verified: false },
+  // Trail of Bits
+  const tobReviews = [
+    { author: 'Bob Martinez', rating: 0.95, summary: 'Top-tier auditors. Found critical bugs others missed.', verified: true },
+    { author: 'Grace Kim', rating: 0.92, summary: 'Expensive but worth it. Their reports are incredibly thorough.', verified: true },
+    { author: 'Jack Wilson', rating: 0.88, summary: 'Great team, professional communication throughout.', verified: true },
+    { author: 'Suspicious Sam', rating: 0.99, summary: 'BEST AUDITORS EVER!!!!! HIRE THEM!!!!!', verified: false },
   ];
 
-  for (const review of greenForkReviews) {
+  for (const review of tobReviews) {
     await createEndorsement(
       findPrincipal(review.author).address,
       {
-        subject: findSubject('The Green Fork').id,
-        domain: 'food',
+        subject: findSubject('Trail of Bits').id,
+        domain: 'security',
         rating: { score: review.rating, originalScore: `${Math.round(review.rating * 5)} out of 5`, originalScale: '1-5 stars' },
         content: { summary: review.summary },
         context: { verified: review.verified, relationship: 'one-time' },
       },
       testSignature
     );
-    console.log(`  ${review.author} -> The Green Fork (${review.rating})`);
+    console.log(`  ${review.author} -> Trail of Bits (${review.rating})`);
   }
 
-  // Maria's Taqueria
-  const mariasReviews = [
-    { author: 'Frank Garcia', rating: 0.95, summary: 'Authentic Mexican food! Reminds me of my grandmother\'s cooking.', verified: true },
-    { author: 'Jack Wilson', rating: 0.88, summary: 'Best tacos in town. The salsa verde is incredible.', verified: true },
-    { author: 'Bob Martinez', rating: 0.82, summary: 'Great value lunch specials. Gets crowded at noon.', verified: false },
+  // Ledger Nano X
+  const ledgerReviews = [
+    { author: 'Carol Williams', rating: 0.85, summary: 'Solid hardware wallet. Bluetooth is convenient but battery life could be better.', verified: true },
+    { author: 'Henry Brown', rating: 0.78, summary: 'Good security but the Ledger Live software is clunky.', verified: true },
+    { author: 'Maya Patel', rating: 0.65, summary: 'Concerned after the data breach. Hardware is fine though.', verified: false },
+    { author: 'Eva Johnson', rating: 0.80, summary: 'Easy to set up. Supports lots of chains.', verified: false },
   ];
 
-  for (const review of mariasReviews) {
+  for (const review of ledgerReviews) {
     await createEndorsement(
       findPrincipal(review.author).address,
       {
-        subject: findSubject("Maria's Taqueria").id,
-        domain: 'food',
+        subject: findSubject('Ledger Nano X').id,
+        domain: 'wallets',
         rating: { score: review.rating, originalScore: `${Math.round(review.rating * 5)} out of 5`, originalScale: '1-5 stars' },
         content: { summary: review.summary },
         context: { verified: review.verified, relationship: 'recurring' },
       },
       testSignature
     );
-    console.log(`  ${review.author} -> Maria's Taqueria (${review.rating})`);
+    console.log(`  ${review.author} -> Ledger Nano X (${review.rating})`);
+  }
+
+  // Lido
+  const lidoReviews = [
+    { author: 'David Lee', rating: 0.88, summary: 'Easy staking with good APY. stETH is widely supported.', verified: true },
+    { author: 'Bob Martinez', rating: 0.85, summary: 'Been staking since the merge. Reliable and liquid.', verified: true },
+    { author: 'Leo Anderson', rating: 0.70, summary: 'Good product but concerned about centralization.', verified: false },
+  ];
+
+  for (const review of lidoReviews) {
+    await createEndorsement(
+      findPrincipal(review.author).address,
+      {
+        subject: findSubject('Lido').id,
+        domain: 'defi',
+        rating: { score: review.rating, originalScore: `${Math.round(review.rating * 5)} out of 5`, originalScale: '1-5 stars' },
+        content: { summary: review.summary },
+        context: { verified: review.verified, relationship: 'recurring' },
+      },
+      testSignature
+    );
+    console.log(`  ${review.author} -> Lido (${review.rating})`);
+  }
+
+  // OpenSea
+  const openseaReviews = [
+    { author: 'Iris Davis', rating: 0.75, summary: 'Biggest marketplace but fees are high. UI improved recently.', verified: true },
+    { author: 'Alice Chen', rating: 0.68, summary: 'Lost market share to Blur. Still okay for browsing.', verified: true },
+    { author: 'Random Reviewer', rating: 0.95, summary: 'Best NFT marketplace! Love it!', verified: false },
+  ];
+
+  for (const review of openseaReviews) {
+    await createEndorsement(
+      findPrincipal(review.author).address,
+      {
+        subject: findSubject('OpenSea').id,
+        domain: 'nft',
+        rating: { score: review.rating, originalScore: `${Math.round(review.rating * 5)} out of 5`, originalScale: '1-5 stars' },
+        content: { summary: review.summary },
+        context: { verified: review.verified, relationship: 'recurring' },
+      },
+      testSignature
+    );
+    console.log(`  ${review.author} -> OpenSea (${review.rating})`);
+  }
+
+  // Alchemy
+  const alchemyReviews = [
+    { author: 'Frank Garcia', rating: 0.92, summary: 'Best RPC provider. Supernode is incredibly reliable.', verified: true },
+    { author: 'Jack Wilson', rating: 0.88, summary: 'Great free tier. Enhanced APIs save so much time.', verified: true },
+    { author: 'Bob Martinez', rating: 0.85, summary: 'Been using for 2 years. Rarely any downtime.', verified: false },
+  ];
+
+  for (const review of alchemyReviews) {
+    await createEndorsement(
+      findPrincipal(review.author).address,
+      {
+        subject: findSubject('Alchemy').id,
+        domain: 'infrastructure',
+        rating: { score: review.rating, originalScore: `${Math.round(review.rating * 5)} out of 5`, originalScale: '1-5 stars' },
+        content: { summary: review.summary },
+        context: { verified: review.verified, relationship: 'recurring' },
+      },
+      testSignature
+    );
+    console.log(`  ${review.author} -> Alchemy (${review.rating})`);
   }
 
   // ============================================
@@ -639,23 +637,23 @@ async function seed() {
   console.log('\nCreating Nick\'s reviews...');
 
   const nicksReviews = [
-    // Food places
-    { subject: "Joe's Coffee Shop", domain: 'food', rating: 0.92, summary: 'My go-to morning coffee spot. The pour-over is exceptional.' },
-    { subject: 'Sakura Sushi', domain: 'food', rating: 0.88, summary: 'Fresh fish, great omakase. A bit pricey but worth it for special occasions.' },
-    { subject: "Maria's Taqueria", domain: 'food', rating: 0.95, summary: 'Best carnitas in the city. The homemade tortillas are incredible!' },
-    { subject: 'Sunset Thai', domain: 'food', rating: 0.85, summary: 'Solid pad thai and great green curry. Fast delivery too.' },
-    { subject: 'Blue Moon Brewery', domain: 'food', rating: 0.78, summary: 'Good craft beer selection. Food is decent but come for the beer.' },
-    { subject: 'Corner Bakery', domain: 'food', rating: 0.90, summary: 'Amazing croissants and sourdough. Get there early before they sell out!' },
-    { subject: 'Pho King Delicious', domain: 'food', rating: 0.82, summary: 'Huge portions, flavorful broth. Cash only but very affordable.' },
-    { subject: 'Napoli Pizza', domain: 'food', rating: 0.88, summary: 'Authentic Neapolitan style. The margherita is perfection.' },
-    // Services
-    { subject: "Mike's Plumbing", domain: 'home', rating: 0.90, summary: 'Fixed my kitchen sink same day. Fair prices and professional.' },
-    { subject: 'QuickFix Auto Repair', domain: 'auto', rating: 0.85, summary: 'Honest mechanics. Explained everything before doing the work.' },
-    { subject: 'Happy Paws Dog Walking', domain: 'pets', rating: 0.92, summary: 'My dog loves Sarah! Always sends photos during walks.' },
-    { subject: 'ProTech Computer Repair', domain: 'tech', rating: 0.80, summary: 'Recovered my data after hard drive failure. Saved my bacon!' },
-    // Products
-    { subject: 'TechPro Wireless Earbuds', domain: 'tech', rating: 0.75, summary: 'Good sound quality but the case scratches easily. Battery life is solid.' },
-    { subject: 'CloudComfort Mattress', domain: 'home', rating: 0.88, summary: 'Best sleep I\'ve had in years. Took a week to break in but worth it.' },
+    // DeFi Protocols
+    { subject: 'Uniswap', domain: 'defi', rating: 0.92, summary: 'My go-to DEX. V3 is amazing for LPing. Never had issues.' },
+    { subject: 'Aave', domain: 'defi', rating: 0.90, summary: 'Solid lending protocol. Great for leveraged staking strategies.' },
+    { subject: 'Compound', domain: 'defi', rating: 0.82, summary: 'OG lending protocol. Interface is dated but reliable.' },
+    { subject: 'Curve Finance', domain: 'defi', rating: 0.88, summary: 'Best for stable swaps. CRV rewards make it worthwhile.' },
+    { subject: 'Lido', domain: 'defi', rating: 0.85, summary: 'Easy ETH staking. stETH integration everywhere is great.' },
+    { subject: 'Eigenlayer', domain: 'defi', rating: 0.78, summary: 'Promising restaking concept. Still early but watching closely.' },
+    // Security & Infrastructure
+    { subject: 'Trail of Bits', domain: 'security', rating: 0.95, summary: 'Best auditors in the space. Worth every penny for critical contracts.' },
+    { subject: 'OpenZeppelin', domain: 'security', rating: 0.90, summary: 'Their contracts are the gold standard. Defender is useful too.' },
+    { subject: 'Chainlink', domain: 'infrastructure', rating: 0.88, summary: 'Essential for any serious DeFi project. CCIP looks promising.' },
+    { subject: 'The Graph', domain: 'infrastructure', rating: 0.82, summary: 'Great for indexing. Subgraph development has a learning curve.' },
+    { subject: 'Alchemy', domain: 'infrastructure', rating: 0.90, summary: 'Best RPC I have used. Enhanced APIs are incredibly useful.' },
+    // Wallets & Products
+    { subject: 'Ledger Nano X', domain: 'wallets', rating: 0.80, summary: 'Reliable hardware wallet. Bluetooth is nice but battery dies fast.' },
+    { subject: 'Trezor Model T', domain: 'wallets', rating: 0.85, summary: 'Great open source option. Touchscreen UI is intuitive.' },
+    { subject: 'Rainbow Wallet', domain: 'wallets', rating: 0.88, summary: 'Beautiful mobile wallet. Points program is a nice bonus.' },
   ];
 
   for (const review of nicksReviews) {
