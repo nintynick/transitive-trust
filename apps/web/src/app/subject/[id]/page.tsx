@@ -113,7 +113,7 @@ export default function SubjectPage() {
                 <span key={d} className="px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">{d}</span>
               ))}
             </div>
-            {subject.location && (
+            {subject.location && subject.location.latitude != null && subject.location.longitude != null && (
               <p className="text-sm text-gray-500">
                 Location: {subject.location.latitude.toFixed(4)}, {subject.location.longitude.toFixed(4)}
               </p>
