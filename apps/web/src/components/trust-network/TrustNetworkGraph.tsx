@@ -291,11 +291,19 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
           y: event.clientY - rect.top - 10,
           content: d.isViewer
             ? 'You (viewer)'
-            : `${name}\nTrust: ${(d.effectiveTrust * 100).toFixed(0)}%\nHops: ${d.hopDistance}`,
+            : `${name}\nTrust: ${(d.effectiveTrust * 100).toFixed(0)}%\nHops: ${d.hopDistance}\n(Click to view network)`,
         });
       })
       .on('mouseleave', () => {
         setTooltip((prev) => ({ ...prev, visible: false }));
+      })
+      .on('click', (event, d) => {
+        // Don't navigate if this was a drag
+        if (event.defaultPrevented) return;
+        // Skip navigation for the viewer node
+        if (d.isViewer) return;
+        // Navigate to the network page for this principal
+        window.location.href = `/network?principal=${d.id}`;
       });
 
     // Subject node hover events
@@ -307,11 +315,17 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
           visible: true,
           x: event.clientX - rect.left,
           y: event.clientY - rect.top - 10,
-          content: `${name}\n(Reviewed business/service)`,
+          content: `${name}\n(Reviewed business/service)\n(Click to view details)`,
         });
       })
       .on('mouseleave', () => {
         setTooltip((prev) => ({ ...prev, visible: false }));
+      })
+      .on('click', (event, d) => {
+        // Don't navigate if this was a drag
+        if (event.defaultPrevented) return;
+        // Navigate to the subject detail page
+        window.location.href = `/subject/${d.id}`;
       });
 
     // Link hover events
@@ -429,7 +443,7 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
       {/* Controls hint */}
       {showLegend && (
         <div className="absolute bottom-4 right-4 bg-white dark:bg-gray-800 rounded-lg p-2 shadow-md text-xs text-gray-500">
-          Scroll to zoom • Drag to pan • Drag nodes to rearrange
+          Click nodes for details • Scroll to zoom • Drag to pan
         </div>
       )}
     </div>
