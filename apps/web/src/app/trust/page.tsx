@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { trpc } from '@/lib/trpc';
 import Link from 'next/link';
+import { COMMON_DOMAINS, RESERVED_DOMAINS } from '@ttp/shared';
 
 export default function TrustPage() {
   const [targetId, setTargetId] = useState('');
@@ -135,10 +136,12 @@ export default function TrustPage() {
               onChange={(e) => setDomain(e.target.value)}
               className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
             >
-              <option value="*">All Domains</option>
-              <option value="food.restaurants">Restaurants</option>
-              <option value="services.home.plumbing">Plumbing</option>
-              <option value="tech.software">Software</option>
+              <option value={RESERVED_DOMAINS.WILDCARD}>All Domains (*)</option>
+              {Object.entries(COMMON_DOMAINS).map(([id, { name }]) => (
+                <option key={id} value={id}>
+                  {name} ({id})
+                </option>
+              ))}
             </select>
           </div>
 
