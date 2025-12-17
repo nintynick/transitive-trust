@@ -262,7 +262,7 @@ export async function getEndorsementsByAuthor(
       verified: e.verified,
       signature: e.signature
     } AS e,
-    subject.name AS subjectName,
+    subject.canonicalName AS subjectName,
     subject.type AS subjectType
     ORDER BY e.createdAt DESC
     SKIP toInteger($offset)
@@ -458,7 +458,7 @@ export async function getEndorsementsFromNetwork(
     } AS e,
     authorTrust,
     hopDistance,
-    subject.name AS subjectName,
+    subject.canonicalName AS subjectName,
     subject.type AS subjectType,
     author.metadata AS authorDisplayName
     ORDER BY ${orderByClause}

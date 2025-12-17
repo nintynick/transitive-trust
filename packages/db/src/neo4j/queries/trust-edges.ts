@@ -601,8 +601,8 @@ export async function getTrustNetworkWithEndorsements(
       RETURN DISTINCT
         author.id AS authorId,
         subject.id AS subjectId,
-        subject.name AS subjectName,
-        subject.description AS subjectDescription,
+        subject.canonicalName AS subjectName,
+        subject.metadata AS subjectDescription,
         e.ratingScore AS rating,
         e.summary AS summary,
         d.id AS domain
@@ -618,6 +618,16 @@ export async function getTrustNetworkWithEndorsements(
       // Add subject node if not already added
       if (!subjectIds.has(e.subjectId)) {
         subjectIds.add(e.subjectId);
+        // Parse metadata JSON for description if available
+        let description: string | undefined;
+        try {
+          if (e.subjectDescription) {
+            const metadata = JSON.parse(e.subjectDescription);
+            description = metadata.description;
+          }
+        } catch {
+          // Ignore parse errors
+        }
         nodes.push({
           id: e.subjectId,
           type: 'subject',
@@ -626,7 +636,7 @@ export async function getTrustNetworkWithEndorsements(
           hopDistance: -1, // Subjects don't have hop distance
           subjectMetadata: {
             name: e.subjectName || undefined,
-            description: e.subjectDescription || undefined,
+            description,
           },
         });
       }
