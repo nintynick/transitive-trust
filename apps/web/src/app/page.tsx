@@ -12,6 +12,7 @@ export default function Home() {
 
   const [displayName, setDisplayName] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
 
   // Store address in localStorage for tRPC header
   useEffect(() => {
@@ -41,16 +42,19 @@ export default function Home() {
   const createPrincipal = trpc.principals.create.useMutation({
     onSuccess: () => {
       setIsRegistering(false);
+      setRegistrationError(null);
       refetchMe();
     },
-    onError: () => {
+    onError: (err) => {
       setIsRegistering(false);
+      setRegistrationError(err.message);
     },
   });
 
   const handleRegister = () => {
     if (!address) return;
     setIsRegistering(true);
+    setRegistrationError(null);
     createPrincipal.mutate({
       type: 'user',
       publicKey: address,
@@ -167,6 +171,11 @@ export default function Home() {
               onChange={(e) => setDisplayName(e.target.value)}
               className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
             />
+            {registrationError && (
+              <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-lg text-red-700 dark:text-red-300 text-sm">
+                {registrationError}
+              </div>
+            )}
             <button
               onClick={handleRegister}
               disabled={isRegistering || createPrincipal.isPending}
