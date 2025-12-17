@@ -49,7 +49,12 @@ export const principalsRouter = router({
       return updatePrincipalMetadata(ctx.viewer.id, input.metadata);
     }),
 
-  me: protectedProcedure.query(async ({ ctx }) => {
-    return getPrincipalById(ctx.viewer.id);
+  // Returns the current user's principal, or null if they haven't registered yet
+  // This is a public procedure so new users can check if they need to register
+  me: publicProcedure.query(async ({ ctx }) => {
+    if (!ctx.viewer) {
+      return null;
+    }
+    return ctx.viewer;
   }),
 });
