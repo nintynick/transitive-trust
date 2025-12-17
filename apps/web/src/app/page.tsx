@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { useAccount, useDisconnect } from 'wagmi';
 import { trpc } from '@/lib/trpc';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import { WalletConnectModal } from '@/components/WalletConnectModal';
 
 // Dynamic imports to avoid SSR issues with D3
 const TrustNetworkGraph = dynamic(
@@ -33,13 +34,15 @@ const PublicNetworkExplorer = dynamic(
 
 export default function Home() {
   const { address, isConnected } = useAccount();
-  const { connect, connectors, isPending: isConnecting } = useConnect();
   const { disconnect } = useDisconnect();
+  const [showWalletModal, setShowWalletModal] = useState(false);
 
   // Store address in localStorage for tRPC header
   useEffect(() => {
     if (address) {
       localStorage.setItem('ttp-principal-id', address);
+      // Close wallet modal on successful connection
+      setShowWalletModal(false);
     } else {
       localStorage.removeItem('ttp-principal-id');
     }
@@ -84,12 +87,9 @@ export default function Home() {
     localStorage.removeItem('ttp-principal-id');
   };
 
-  // Handle connect action for the CTA button
+  // Handle connect action for the CTA button - opens wallet modal
   const handleConnect = () => {
-    const defaultConnector = connectors[0];
-    if (defaultConnector) {
-      connect({ connector: defaultConnector });
-    }
+    setShowWalletModal(true);
   };
 
   // Not connected - show network explorer + connect wallet
@@ -137,27 +137,24 @@ export default function Home() {
               <p className="text-blue-100">
                 Connect your Ethereum wallet to start building your own trust network
               </p>
+              <p className="text-blue-200 text-sm mt-2">
+                Works with MetaMask, WalletConnect, Coinbase Wallet, and more
+              </p>
             </div>
-            <div className="flex flex-col gap-3 w-full md:w-auto">
-              {connectors.length === 0 ? (
-                <p className="text-sm text-blue-100">
-                  No wallet detected. Please install MetaMask or another Ethereum wallet.
-                </p>
-              ) : (
-                connectors.map((connector) => (
-                  <button
-                    key={connector.uid}
-                    onClick={() => connect({ connector })}
-                    disabled={isConnecting}
-                    className="px-8 py-3 bg-white text-blue-600 rounded-lg hover:bg-gray-100 disabled:opacity-50 font-semibold transition-colors shadow-md"
-                  >
-                    {isConnecting ? 'Connecting...' : `Connect ${connector.name}`}
-                  </button>
-                ))
-              )}
-            </div>
+            <button
+              onClick={handleConnect}
+              className="px-8 py-4 bg-white text-blue-600 rounded-xl hover:bg-gray-100 font-semibold transition-colors shadow-lg flex items-center gap-3 w-full md:w-auto justify-center"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              Connect Wallet
+            </button>
           </div>
         </div>
+
+        {/* Wallet Connect Modal */}
+        <WalletConnectModal isOpen={showWalletModal} onClose={() => setShowWalletModal(false)} />
 
         {/* How it works */}
         <section className="mb-10">

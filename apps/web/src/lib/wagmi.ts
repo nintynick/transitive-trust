@@ -1,14 +1,46 @@
 import { http, createConfig, createStorage, cookieStorage } from 'wagmi';
 import { mainnet } from 'wagmi/chains';
+import { injected, walletConnect, coinbaseWallet, metaMask } from '@wagmi/connectors';
 
-// Minimal wagmi config - auto-detects injected wallets (MetaMask, etc.)
-// No explicit connectors needed - wagmi will detect available wallets
+// WalletConnect Project ID - get one at https://cloud.walletconnect.com
+// This enables mobile wallet connections via WalletConnect protocol
+const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'demo-project-id';
+
+// Configure connectors for desktop and mobile
 export const config = createConfig({
   chains: [mainnet],
   ssr: true,
   storage: createStorage({
     storage: cookieStorage,
   }),
+  connectors: [
+    // MetaMask - most popular wallet
+    metaMask({
+      dappMetadata: {
+        name: 'Transitive Trust Protocol',
+        url: typeof window !== 'undefined' ? window.location.origin : 'https://transitivetrust.xyz',
+      },
+    }),
+    // WalletConnect - enables mobile wallet connections
+    walletConnect({
+      projectId: walletConnectProjectId,
+      showQrModal: true,
+      metadata: {
+        name: 'Transitive Trust Protocol',
+        description: 'A decentralized system for perspectival trust and reputation',
+        url: typeof window !== 'undefined' ? window.location.origin : 'https://transitivetrust.xyz',
+        icons: [],
+      },
+    }),
+    // Coinbase Wallet - popular mobile wallet
+    coinbaseWallet({
+      appName: 'Transitive Trust Protocol',
+    }),
+    // Other injected wallets (browser extensions)
+    injected({
+      shimDisconnect: true,
+    }),
+  ],
   transports: {
     [mainnet.id]: http(),
   },
