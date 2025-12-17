@@ -291,7 +291,7 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
           y: event.clientY - rect.top - 10,
           content: d.isViewer
             ? 'You (viewer)'
-            : `${name}\nTrust: ${(d.effectiveTrust * 100).toFixed(0)}%\nHops: ${d.hopDistance}\n(Click to view network)`,
+            : `${name}\nTrust: ${(d.effectiveTrust * 100).toFixed(0)}%\nHops: ${d.hopDistance}\n(Click to view profile)`,
         });
       })
       .on('mouseleave', () => {
@@ -302,8 +302,8 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
         if (event.defaultPrevented) return;
         // Skip navigation for the viewer node
         if (d.isViewer) return;
-        // Navigate to the network page for this principal
-        window.location.href = `/network?principal=${d.id}`;
+        // Navigate to the profile page for this principal
+        window.location.href = `/profile/${d.id}`;
       });
 
     // Subject node hover events

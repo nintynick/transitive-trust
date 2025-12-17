@@ -448,6 +448,83 @@ export async function getTrustNetwork(
 }
 
 /**
+ * Get trust connection info between viewer and a target principal
+ */
+export async function getTrustConnection(
+  viewerId: PrincipalId,
+  targetId: PrincipalId,
+  options: {
+    domain?: DomainId;
+    maxHops?: number;
+  } = {}
+): Promise<{
+  connected: boolean;
+  effectiveTrust: number;
+  hopDistance: number;
+  path: Array<{ id: string; displayName?: string }>;
+} | null> {
+  const { domain = '*', maxHops = 4 } = options;
+  const intMaxHops = Math.floor(maxHops);
+
+  // Check if it's the viewer themselves
+  if (viewerId === targetId) {
+    return {
+      connected: true,
+      effectiveTrust: 1,
+      hopDistance: 0,
+      path: [],
+    };
+  }
+
+  const result = await readQuery<{
+    pathTrust: number;
+    hops: number;
+    pathIds: string[];
+    pathMetadata: string[];
+  }>(
+    `
+    MATCH path = shortestPath((viewer:Principal {id: $viewerId})-[:TRUSTS*1..${intMaxHops}]->(target:Principal {id: $targetId}))
+    WHERE ALL(r IN relationships(path) WHERE
+      (r.domain = $domain OR r.domain = '*') AND
+      (r.expiresAt IS NULL OR r.expiresAt > datetime())
+    )
+    RETURN
+      reduce(trust = 1.0, r IN relationships(path) | trust * r.weight) AS pathTrust,
+      length(path) AS hops,
+      [n IN nodes(path) | n.id] AS pathIds,
+      [n IN nodes(path) | n.metadata] AS pathMetadata
+    `,
+    { viewerId, targetId, domain }
+  );
+
+  if (result.length === 0) {
+    return null;
+  }
+
+  const r = result[0];
+
+  // Parse path nodes (excluding first and last which are viewer and target)
+  const pathNodes: Array<{ id: string; displayName?: string }> = [];
+  for (let i = 1; i < r.pathIds.length - 1; i++) {
+    let displayName: string | undefined;
+    try {
+      const metadata = JSON.parse(r.pathMetadata[i] || '{}');
+      displayName = metadata.displayName || metadata.name;
+    } catch {
+      // Ignore
+    }
+    pathNodes.push({ id: r.pathIds[i], displayName });
+  }
+
+  return {
+    connected: true,
+    effectiveTrust: toNumber(r.pathTrust),
+    hopDistance: toNumber(r.hops),
+    path: pathNodes,
+  };
+}
+
+/**
  * Get the trust network with endorsements and subjects included
  */
 export async function getTrustNetworkWithEndorsements(

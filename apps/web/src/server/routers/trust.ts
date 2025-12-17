@@ -20,6 +20,7 @@ import {
   revokeDistrustEdge,
   getTrustNetwork,
   getTrustNetworkWithEndorsements,
+  getTrustConnection,
   getPrincipalById,
 } from '@ttp/db';
 import { TRPCError } from '@trpc/server';
@@ -164,5 +165,20 @@ export const trustRouter = router({
     )
     .query(async ({ ctx, input }) => {
       return getTrustNetworkWithEndorsements(ctx.viewer.id, input);
+    }),
+
+  getConnection: protectedProcedure
+    .input(
+      z.object({
+        targetId: PrincipalIdSchema,
+        domain: DomainIdSchema.optional(),
+        maxHops: z.number().int().min(1).max(4).optional().default(4),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      return getTrustConnection(ctx.viewer.id, input.targetId, {
+        domain: input.domain,
+        maxHops: input.maxHops,
+      });
     }),
 });
