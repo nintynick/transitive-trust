@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
+import { useEnsNames } from '@/hooks/useEns';
 
 interface NetworkNode {
   id: string;
@@ -64,6 +65,20 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
     y: number;
     content: string;
   }>({ visible: false, x: 0, y: 0, content: '' });
+
+  // Get all principal addresses for ENS lookup (including viewerId)
+  const principalAddresses = useMemo(() => {
+    const addresses = nodes
+      .filter(n => n.type === 'principal' && n.id.startsWith('0x'))
+      .map(n => n.id);
+    if (viewerId.startsWith('0x') && !addresses.includes(viewerId)) {
+      addresses.push(viewerId);
+    }
+    return addresses;
+  }, [nodes, viewerId]);
+
+  // Fetch ENS names for all principals
+  const { ensNames } = useEnsNames(principalAddresses);
 
   // Wait for mount to ensure we have correct dimensions
   useEffect(() => {
@@ -266,13 +281,23 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
           d.fy = null;
         }));
 
+    // Helper to get display name with ENS preference
+    const getDisplayLabel = (d: D3Node) => {
+      if (d.isViewer) return 'You';
+      const ensName = ensNames.get(d.id);
+      if (ensName) return ensName;
+      if (d.displayName) return d.displayName;
+      if (d.nodeType === 'subject') return 'Unknown';
+      return d.id.startsWith('0x') ? `${d.id.slice(0, 6)}...${d.id.slice(-4)}` : d.id.slice(0, 8) + '...';
+    };
+
     // Add labels
     const labels = g.append('g')
       .attr('class', 'labels')
       .selectAll('text')
       .data(d3Nodes)
       .join('text')
-      .text((d) => d.displayName || (d.nodeType === 'subject' ? 'Unknown' : (d.id.startsWith('0x') ? `${d.id.slice(0, 6)}...${d.id.slice(-4)}` : d.id.slice(0, 8) + '...')))
+      .text((d) => getDisplayLabel(d))
       .attr('font-size', 11)
       .attr('font-weight', (d) => d.isViewer ? 'bold' : 'normal')
       .attr('fill', '#374151')
@@ -284,14 +309,17 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
     principalNode
       .on('mouseenter', (event, d) => {
         const rect = container.getBoundingClientRect();
-        const name = d.displayName || (d.id.startsWith('0x') ? `${d.id.slice(0, 6)}...${d.id.slice(-4)}` : 'Unknown');
+        const ensName = ensNames.get(d.id);
+        const shortAddr = d.id.startsWith('0x') ? `${d.id.slice(0, 6)}...${d.id.slice(-4)}` : d.id;
+        const name = ensName || d.displayName || shortAddr;
+        const addressLine = ensName ? `\n(${shortAddr})` : '';
         setTooltip({
           visible: true,
           x: event.clientX - rect.left,
           y: event.clientY - rect.top - 10,
           content: d.isViewer
-            ? 'You (viewer)\n(Click to view profile)'
-            : `${name}\nTrust: ${(d.effectiveTrust * 100).toFixed(0)}%\nHops: ${d.hopDistance}\n(Click to view profile)`,
+            ? `You (viewer)${addressLine}\n(Click to view profile)`
+            : `${name}${addressLine}\nTrust: ${(d.effectiveTrust * 100).toFixed(0)}%\nHops: ${d.hopDistance}\n(Click to view profile)`,
         });
       })
       .on('mouseleave', () => {
@@ -334,6 +362,9 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
         const targetNode = typeof d.target === 'object' ? d.target : nodeMap.get(d.target as string);
         const getNodeDisplayName = (node: D3Node | undefined) => {
           if (!node) return 'Unknown';
+          // Check for ENS name first
+          const ensName = ensNames.get(node.id);
+          if (ensName) return ensName;
           if (node.displayName) return node.displayName;
           if (node.nodeType === 'subject') return 'Unknown business';
           return node.id.startsWith('0x') ? `${node.id.slice(0, 6)}...${node.id.slice(-4)}` : 'Unknown';
@@ -377,7 +408,7 @@ export function TrustNetworkGraph({ nodes, edges, viewerId, showEndorsements = t
     return () => {
       simulation.stop();
     };
-  }, [mounted, nodes, edges, viewerId, showEndorsements]);
+  }, [mounted, nodes, edges, viewerId, showEndorsements, ensNames]);
 
   return (
     <div ref={containerRef} className="relative w-full" style={{ minHeight: 500 }}>

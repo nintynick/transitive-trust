@@ -1,9 +1,10 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { trpc } from '@/lib/trpc';
 import Link from 'next/link';
+import { useEnsName, useEnsNames } from '@/hooks/useEns';
 
 export default function ProfilePage() {
   const params = useParams();
@@ -43,7 +44,24 @@ export default function ProfilePage() {
     { enabled: isOwnProfile }
   );
 
-  const displayName = principal?.metadata?.displayName || principal?.metadata?.name;
+  // ENS name resolution
+  const { ensName: profileEnsName } = useEnsName(profileId);
+
+  // Get ENS names for trust path
+  const pathAddresses = useMemo(() => {
+    if (!connection?.path) return [];
+    return connection.path.map(node => node.id).filter(id => id.startsWith('0x'));
+  }, [connection?.path]);
+  const { ensNames: pathEnsNames } = useEnsNames(pathAddresses);
+
+  // Get ENS names for outgoing trust
+  const outgoingAddresses = useMemo(() => {
+    if (!outgoingTrust) return [];
+    return outgoingTrust.map(edge => edge.to).filter(id => id.startsWith('0x'));
+  }, [outgoingTrust]);
+  const { ensNames: outgoingEnsNames } = useEnsNames(outgoingAddresses);
+
+  const displayName = profileEnsName || principal?.metadata?.displayName || principal?.metadata?.name;
   const shortId = profileId.startsWith('0x')
     ? `${profileId.slice(0, 6)}...${profileId.slice(-4)}`
     : profileId;
@@ -151,17 +169,21 @@ export default function ProfilePage() {
                 <div className="text-sm text-gray-500">
                   <span className="font-medium">Trust path:</span>{' '}
                   You &rarr;{' '}
-                  {connection.path.map((node, i) => (
-                    <span key={node.id}>
-                      <Link
-                        href={`/profile/${node.id}`}
-                        className="text-blue-600 hover:underline"
-                      >
-                        {node.displayName || `${node.id.slice(0, 6)}...`}
-                      </Link>
-                      {' '}&rarr;{' '}
-                    </span>
-                  ))}
+                  {connection.path.map((node, i) => {
+                    const nodeEnsName = pathEnsNames.get(node.id);
+                    const nodeDisplay = nodeEnsName || node.displayName || `${node.id.slice(0, 6)}...`;
+                    return (
+                      <span key={node.id}>
+                        <Link
+                          href={`/profile/${node.id}`}
+                          className="text-blue-600 hover:underline"
+                        >
+                          {nodeDisplay}
+                        </Link>
+                        {' '}&rarr;{' '}
+                      </span>
+                    );
+                  })}
                   {displayName || shortId}
                 </div>
               )}
@@ -254,25 +276,33 @@ export default function ProfilePage() {
             <h3 className="text-lg font-semibold">People You Trust ({outgoingTrust.length})</h3>
           </div>
           <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-            {outgoingTrust.map((edge) => (
-              <li key={edge.id} className="p-4 flex items-center justify-between">
-                <Link
-                  href={`/profile/${edge.to}`}
-                  className="font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400"
-                >
-                  {edge.to.startsWith('0x')
-                    ? `${edge.to.slice(0, 6)}...${edge.to.slice(-4)}`
-                    : edge.to}
-                </Link>
-                <div className="text-sm text-gray-500">
-                  <span className="font-medium">{(edge.weight * 100).toFixed(0)}%</span>
-                  {' for '}
-                  <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">
-                    {edge.domain === '*' ? 'everything' : edge.domain}
-                  </span>
-                </div>
-              </li>
-            ))}
+            {outgoingTrust.map((edge) => {
+              const edgeEnsName = outgoingEnsNames.get(edge.to);
+              const shortAddr = edge.to.startsWith('0x') ? `${edge.to.slice(0, 6)}...${edge.to.slice(-4)}` : edge.to;
+              const edgeDisplay = edgeEnsName || shortAddr;
+              return (
+                <li key={edge.id} className="p-4 flex items-center justify-between">
+                  <div>
+                    <Link
+                      href={`/profile/${edge.to}`}
+                      className="font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400"
+                    >
+                      {edgeDisplay}
+                    </Link>
+                    {edgeEnsName && (
+                      <span className="ml-2 text-xs text-gray-500 font-mono">{shortAddr}</span>
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    <span className="font-medium">{(edge.weight * 100).toFixed(0)}%</span>
+                    {' for '}
+                    <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">
+                      {edge.domain === '*' ? 'everything' : edge.domain}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

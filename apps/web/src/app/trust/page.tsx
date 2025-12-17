@@ -6,6 +6,8 @@ import { trpc } from '@/lib/trpc';
 import Link from 'next/link';
 import { COMMON_DOMAINS, RESERVED_DOMAINS, canonicalize } from '@ttp/shared';
 import { createSignature } from '@/lib/signing';
+import { useEnsName, useEnsNames, useResolveAddressOrEns } from '@/hooks/useEns';
+import { isEnsName } from '@/lib/ens';
 
 // Trust level descriptions that explain what each level means
 function getTrustDescription(weight: number): { label: string; description: string; color: string } {
@@ -46,6 +48,7 @@ function getTrustDescription(weight: number): { label: string; description: stri
 
 export default function TrustPage() {
   const [targetId, setTargetId] = useState('');
+  const [manualInput, setManualInput] = useState('');
   const [weight, setWeight] = useState(0.8);
   const [domain, setDomain] = useState('*');
   const [useManualEntry, setUseManualEntry] = useState(false);
@@ -57,6 +60,18 @@ export default function TrustPage() {
   const utils = trpc.useUtils();
 
   const { data: outgoing } = trpc.trust.getOutgoing.useQuery({ domain: '*' });
+
+  // ENS resolution for manual input
+  const { resolve: resolveAddressOrEns, isResolving: isResolvingEns, error: ensError } = useResolveAddressOrEns();
+
+  // Get addresses for ENS name lookups in the list
+  const principalAddresses = outgoing?.map(e => e.to) || [];
+  const { ensNames: outgoingEnsNames } = useEnsNames(principalAddresses);
+
+  // Get principals list first, then look up their ENS names
+  const { data: principals } = trpc.principals.list.useQuery({ limit: 50 });
+  const dropdownAddresses = principals?.filter(p => p.id !== address).map(p => p.id) || [];
+  const { ensNames: dropdownEnsNames } = useEnsNames(dropdownAddresses);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -113,8 +128,6 @@ export default function TrustPage() {
     }
   };
 
-  const { data: principals } = trpc.principals.list.useQuery({ limit: 50 });
-
   // Filter out the current user from the list
   const otherPrincipals = principals?.filter(p => p.id !== address) || [];
 
@@ -164,13 +177,59 @@ export default function TrustPage() {
             </div>
 
             {useManualEntry ? (
-              <input
-                type="text"
-                value={targetId}
-                onChange={(e) => setTargetId(e.target.value)}
-                placeholder="Enter principal ID (e.g., usr_abc123...)"
-                className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-              />
+              <div className="space-y-2">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={manualInput}
+                    onChange={(e) => {
+                      setManualInput(e.target.value);
+                      // Clear resolved target when input changes
+                      if (targetId) setTargetId('');
+                    }}
+                    onBlur={async () => {
+                      if (manualInput && !targetId) {
+                        const resolved = await resolveAddressOrEns(manualInput);
+                        if (resolved) {
+                          setTargetId(resolved);
+                        }
+                      }
+                    }}
+                    placeholder="Enter ENS name (vitalik.eth) or Ethereum address (0x...)"
+                    className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                  />
+                  {isResolvingEns && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+                {manualInput && targetId && isEnsName(manualInput) && (
+                  <p className="text-xs text-green-600 dark:text-green-400">
+                    ✓ Resolved to {targetId.slice(0, 6)}...{targetId.slice(-4)}
+                  </p>
+                )}
+                {ensError && (
+                  <p className="text-xs text-red-500">{ensError}</p>
+                )}
+                {!targetId && manualInput && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (manualInput) {
+                        const resolved = await resolveAddressOrEns(manualInput);
+                        if (resolved) {
+                          setTargetId(resolved);
+                        }
+                      }
+                    }}
+                    disabled={!manualInput || isResolvingEns}
+                    className="text-sm text-blue-600 hover:underline disabled:opacity-50 disabled:no-underline"
+                  >
+                    {isResolvingEns ? 'Resolving...' : 'Resolve address'}
+                  </button>
+                )}
+              </div>
             ) : otherPrincipals.length === 0 ? (
               <div className="text-sm text-gray-500 p-4 border rounded-lg dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
                 <p className="mb-2">No other people in the system yet.</p>
@@ -187,11 +246,16 @@ export default function TrustPage() {
                 className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
               >
                 <option value="">Select someone...</option>
-                {otherPrincipals.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.metadata.displayName || p.id}
-                  </option>
-                ))}
+                {otherPrincipals.map((p) => {
+                  const ensName = dropdownEnsNames.get(p.id);
+                  const shortAddr = p.id.startsWith('0x') ? `${p.id.slice(0, 6)}...${p.id.slice(-4)}` : p.id;
+                  const label = ensName || p.metadata.displayName || shortAddr;
+                  return (
+                    <option key={p.id} value={p.id}>
+                      {label}{ensName ? ` (${shortAddr})` : ''}
+                    </option>
+                  );
+                })}
               </select>
             )}
           </div>
@@ -254,7 +318,11 @@ export default function TrustPage() {
             <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 border-l-4 border-blue-500">
               <p className="text-sm">
                 <span className="font-medium">You're declaring:</span>{' '}
-                "I trust <strong>{selectedPrincipal?.metadata.displayName || (targetId.startsWith('0x') ? `${targetId.slice(0, 6)}...${targetId.slice(-4)}` : `${targetId.slice(0, 12)}...`)}</strong>'s
+                "I trust <strong>{
+                  dropdownEnsNames.get(targetId) ||
+                  selectedPrincipal?.metadata.displayName ||
+                  (targetId.startsWith('0x') ? `${targetId.slice(0, 6)}...${targetId.slice(-4)}` : `${targetId.slice(0, 12)}...`)
+                }</strong>'s
                 judgment for <strong>{domainLabel}</strong> recommendations
                 at <strong>{Math.round(weight * 100)}%</strong> confidence."
               </p>
@@ -288,7 +356,9 @@ export default function TrustPage() {
           <ul className="space-y-3">
             {outgoing?.map((edge) => {
               const person = otherPrincipals.find(p => p.id === edge.to);
-              const displayName = person?.metadata.displayName || (edge.to.startsWith('0x') ? `${edge.to.slice(0, 6)}...${edge.to.slice(-4)}` : `${edge.to.slice(0, 12)}...`);
+              const ensName = outgoingEnsNames.get(edge.to);
+              const shortAddress = edge.to.startsWith('0x') ? `${edge.to.slice(0, 6)}...${edge.to.slice(-4)}` : `${edge.to.slice(0, 12)}...`;
+              const displayName = ensName || person?.metadata.displayName || shortAddress;
               const edgeDomain = edge.domain === '*' ? 'everything' : COMMON_DOMAINS[edge.domain as keyof typeof COMMON_DOMAINS]?.name?.toLowerCase() || edge.domain;
               const trustLevel = getTrustDescription(edge.weight);
 
@@ -300,6 +370,9 @@ export default function TrustPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{displayName}</span>
+                      {ensName && (
+                        <span className="text-xs text-gray-500 font-mono">{shortAddress}</span>
+                      )}
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
                         edge.weight >= 0.7 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
                         edge.weight >= 0.4 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :

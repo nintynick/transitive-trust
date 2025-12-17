@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { trpc } from '@/lib/trpc';
 import Link from 'next/link';
+import { useEnsNames } from '@/hooks/useEns';
 
 type SortBy = 'trust' | 'date' | 'rating';
 type SortOrder = 'asc' | 'desc';
@@ -28,6 +29,15 @@ export default function EndorsementsPage() {
     sortBy,
     sortOrder,
   });
+
+  // Get all author addresses for ENS lookup
+  const authorAddresses = useMemo(() => {
+    if (!feed) return [];
+    return feed
+      .map(item => item.endorsement.author)
+      .filter((id): id is string => !!id && id.startsWith('0x'));
+  }, [feed]);
+  const { ensNames: authorEnsNames } = useEnsNames(authorAddresses);
 
   const getSortLabel = () => {
     switch (sortBy) {
@@ -173,7 +183,13 @@ export default function EndorsementsPage() {
 
       {feed && feed.length > 0 && (
         <div className="space-y-4">
-          {feed.map(({ endorsement, authorTrust, hopDistance, authorDisplayName }) => (
+          {feed.map(({ endorsement, authorTrust, hopDistance, authorDisplayName }) => {
+            const authorEnsName = authorEnsNames.get(endorsement.author);
+            const authorShortAddr = endorsement.author?.startsWith('0x')
+              ? `${endorsement.author.slice(0, 6)}...${endorsement.author.slice(-4)}`
+              : null;
+            const displayAuthor = authorEnsName || authorDisplayName || authorShortAddr || 'Unknown author';
+            return (
             <div
               key={endorsement.id}
               className="bg-white dark:bg-gray-800 rounded-lg p-5 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
@@ -189,9 +205,15 @@ export default function EndorsementsPage() {
                   </Link>
                   <p className="text-sm text-gray-500">
                     Reviewed by{' '}
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      {authorDisplayName || 'Unknown author'}
-                    </span>
+                    <Link
+                      href={`/profile/${endorsement.author}`}
+                      className="font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+                    >
+                      {displayAuthor}
+                    </Link>
+                    {authorEnsName && authorShortAddr && (
+                      <span className="text-gray-400 font-mono text-xs ml-1">({authorShortAddr})</span>
+                    )}
                     <span className="text-gray-400 ml-1">
                       · {hopDistance === 1 ? 'directly trusted' : `${hopDistance} hops away`}
                     </span>
@@ -260,7 +282,8 @@ export default function EndorsementsPage() {
                 </span>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </main>
