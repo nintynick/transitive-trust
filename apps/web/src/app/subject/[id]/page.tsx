@@ -227,27 +227,32 @@ export default function SubjectPage() {
 }
 
 function EndorsementCard({ endorsement }: { endorsement: any }) {
-  const { data: author } = trpc.principals.getById.useQuery({ id: endorsement.author }, { enabled: !!endorsement.author });
+  const { data: author } = trpc.principals.getById.useQuery(
+    { id: endorsement?.author },
+    { enabled: !!endorsement?.author }
+  );
+
+  if (!endorsement) return null;
 
   return (
     <li className="border dark:border-gray-700 rounded-lg p-4">
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center gap-2">
-          <span className="font-medium">{author?.metadata.displayName || endorsement.author.slice(0, 12) + '...'}</span>
+          <span className="font-medium">{author?.metadata?.displayName || (endorsement.author?.slice(0, 12) + '...') || 'Unknown'}</span>
           {endorsement.context?.verified && (
             <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">Verified</span>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <StarRating score={endorsement.rating.score} />
-          <span className="text-sm text-gray-500">({endorsement.rating.originalScore})</span>
+          <StarRating score={endorsement.rating?.score ?? 0} />
+          <span className="text-sm text-gray-500">({endorsement.rating?.originalScore || 'N/A'})</span>
         </div>
       </div>
       {endorsement.content?.summary && <p className="text-gray-700 dark:text-gray-300 mb-2">{endorsement.content.summary}</p>}
       {endorsement.content?.body && <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{endorsement.content.body}</p>}
       <div className="flex items-center gap-4 text-xs text-gray-500">
-        <span>{endorsement.domain}</span>
-        <span>{new Date(endorsement.createdAt).toLocaleDateString()}</span>
+        <span>{endorsement.domain || 'Unknown domain'}</span>
+        <span>{endorsement.createdAt ? new Date(endorsement.createdAt).toLocaleDateString() : 'Unknown date'}</span>
         {endorsement.context?.relationship && <span className="capitalize">{endorsement.context.relationship}</span>}
       </div>
     </li>

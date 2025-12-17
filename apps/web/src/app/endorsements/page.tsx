@@ -48,7 +48,7 @@ export default function EndorsementsPage() {
                   <p className="text-sm text-gray-500">
                     From{' '}
                     <span className="font-medium">
-                      {endorsement.author.slice(0, 12)}...
+                      {endorsement.author?.slice(0, 12) || 'Unknown'}...
                     </span>
                     <span className="ml-2">
                       ({(authorTrust * 100).toFixed(0)}% trust, {hopDistance}{' '}
