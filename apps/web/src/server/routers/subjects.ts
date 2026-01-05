@@ -17,7 +17,7 @@ import {
   searchSubjects,
   updateSubject,
   getSubjectScores,
-} from '@ttp/db';
+} from '../db';
 
 export const subjectsRouter = router({
   create: publicProcedure

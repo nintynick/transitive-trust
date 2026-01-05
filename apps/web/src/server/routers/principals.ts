@@ -13,7 +13,7 @@ import {
   getPrincipalById,
   listPrincipals,
   updatePrincipalMetadata,
-} from '@ttp/db';
+} from '../db';
 
 export const principalsRouter = router({
   create: publicProcedure

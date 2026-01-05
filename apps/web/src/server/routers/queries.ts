@@ -15,7 +15,7 @@ import {
   isDistrusted,
   searchSubjects,
   getPrincipalById,
-} from '@ttp/db';
+} from '../db';
 import { computePersonalizedScore } from '@ttp/trust-engine';
 
 export const queriesRouter = router({

@@ -1,26 +1,24 @@
 /**
  * tRPC server initialization for Next.js API routes
+ *
+ * Currently using mock data. To switch back to Neo4j:
+ * 1. Update db.ts to export from @ttp/db instead of ./mock-db.js
+ * 2. Ensure NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD are set
  */
 
 import { initTRPC, TRPCError } from '@trpc/server';
 import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
 import type { Principal } from '@ttp/shared';
-import { initDriver, getOrCreatePrincipal } from '@ttp/db';
 import superjson from 'superjson';
 import { isAddress } from 'viem';
+import { initDriver, getOrCreatePrincipal } from './db';
 
-// Initialize Neo4j driver
-const neo4jConfig = {
-  uri: process.env.NEO4J_URI || 'bolt://localhost:7687',
-  user: process.env.NEO4J_USER || 'neo4j',
-  password: process.env.NEO4J_PASSWORD || 'trustpassword',
-};
-
+// Initialize driver (no-op in mock mode)
 let driverInitialized = false;
 
 function ensureDriver() {
   if (!driverInitialized) {
-    initDriver(neo4jConfig);
+    initDriver({});
     driverInitialized = true;
   }
 }

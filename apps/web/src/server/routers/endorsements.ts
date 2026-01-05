@@ -20,7 +20,7 @@ import {
   updateEndorsement,
   deleteEndorsement,
   getEndorsementsFromNetwork,
-} from '@ttp/db';
+} from '../db';
 import { TRPCError } from '@trpc/server';
 import { verifyPrincipalSignature, hasValidSignature } from '../lib/verify';
 

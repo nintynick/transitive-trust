@@ -36,6 +36,8 @@ export default function Home() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const [showWalletModal, setShowWalletModal] = useState(false);
+  // Track when localStorage is synced with the current address to avoid race condition
+  const [isHeaderReady, setIsHeaderReady] = useState(false);
 
   // Store address in localStorage for tRPC header
   useEffect(() => {
@@ -43,15 +45,19 @@ export default function Home() {
       localStorage.setItem('ttp-principal-id', address);
       // Close wallet modal on successful connection
       setShowWalletModal(false);
+      // Signal that localStorage is now synced
+      setIsHeaderReady(true);
     } else {
       localStorage.removeItem('ttp-principal-id');
+      setIsHeaderReady(false);
     }
   }, [address]);
 
   // Principal is auto-created on first API call, just fetch it
-  const { data: me, isLoading: isLoadingMe } = trpc.principals.me.useQuery(
+  // Only enable after localStorage is synced to avoid sending requests without the header
+  const { data: me, isLoading: isLoadingMe, isError, error, refetch } = trpc.principals.me.useQuery(
     undefined,
-    { enabled: isConnected && !!address }
+    { enabled: isConnected && !!address && isHeaderReady, retry: 2 }
   );
 
   const { data: myTrust } = trpc.trust.getOutgoing.useQuery(
@@ -209,6 +215,37 @@ export default function Home() {
       <main className="min-h-screen p-8 max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold mb-8">Transitive Trust Protocol</h1>
         <p className="text-gray-500">Loading...</p>
+      </main>
+    );
+  }
+
+  // Error state - show error message with retry option
+  if (isError) {
+    return (
+      <main className="min-h-screen p-8 max-w-4xl mx-auto">
+        <h1 className="text-4xl font-bold mb-8">Transitive Trust Protocol</h1>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">
+            Connection Error
+          </h2>
+          <p className="text-red-600 dark:text-red-300 mb-4">
+            {error?.message || 'Failed to connect to the server. Please check your connection and try again.'}
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => refetch()}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={handleDisconnect}
+              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            >
+              Disconnect Wallet
+            </button>
+          </div>
+        </div>
       </main>
     );
   }

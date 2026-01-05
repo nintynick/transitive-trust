@@ -23,7 +23,7 @@ import {
   getTrustConnection,
   getPrincipalById,
   getPublicNetworkSnapshot,
-} from '@ttp/db';
+} from '../db';
 import { TRPCError } from '@trpc/server';
 import { verifyPrincipalSignature, hasValidSignature } from '../lib/verify';
 import { isAddress } from 'viem';
